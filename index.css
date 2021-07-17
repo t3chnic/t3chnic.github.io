@@ -77,7 +77,8 @@ section {
 }
 
 .btn-toggle {
-    padding: 1em 1em;
+    padding: 1em 2em 1em 1em;
+    color: var(--text-color);
     border: none;
 }
 
