@@ -1,0 +1,121 @@
+@import url(https://cdn.jsdelivr.net/gh/tonsky/FiraCode@5.2/distr/fira_code.css);
+code { font-family: 'Fira Code', monospace; }
+
+@supports (font-variation-settings: normal) {
+    code { font-family: 'Fira Code VF', monospace; }
+}
+
+body, html {
+    margin: 0px;
+    font-family: 'Fira Code', 'Courier New', Courier, monospace;
+    user-select: none;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body.darktheme {
+    --text-color: #eee !important;
+    --bkg-color: #121212 !important;
+    --anchor-color: #aaaaaa !important;
+    --anchor-hover: #fffeee !important;
+}
+
+body {
+    --text-color: #222;
+    --bkg-color: #fff;
+    --anchor-color: #888888;
+    --anchor-hover: #000000;
+    --border-color: #fff;
+    overflow-y: auto;
+}
+
+body {
+    a {
+        color: var(--anchor-color);
+
+        &:hover {
+            color: var(--anchor-hover);
+            cursor: pointer;
+        }
+    }
+
+    ul {
+        list-style-type: none;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        width: 100vw;
+        position: fixed;
+        top: 0;
+
+        li {
+            float: left;
+
+            a {
+                height: 100%;
+                display: block;
+                text-align: center;
+                padding: 14px 16px;
+                text-decoration: none;
+            }
+        }
+    }
+
+    section {
+        margin: 5em 0em;
+
+        &.center-content {
+            min-height: 650px;
+            height: 95vh;
+            display: flex;
+            align-items: center;
+
+            h3 {
+                padding-top: 1em;
+            }
+
+            article {
+                margin: auto;
+                text-align: center;
+            }
+        }
+
+        &:not(.center-content) {
+            width: 100vw;
+
+            article {
+                width: 65%;
+                line-height: 1.85em;
+                margin: auto;
+                text-align: justify;
+            }
+        }
+    }
+
+    button.btn-toggle {
+        padding: 1em 1em;
+        background: var(--bkg-color);
+        border: 2px solid var(--border-color);
+
+        &:hover {
+            cursor: pointer;
+        }
+
+        &.right-align {
+            float: right;
+        }
+    }
+
+    #avatar {
+        height: 35vh;
+        border-radius: calc(35vh/2);
+    }
+
+}
+
+body, * {
+    color: var(--text-color);
+    background: var(--bkg-color);
+}

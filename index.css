@@ -1,0 +1,127 @@
+@import url(https://cdn.jsdelivr.net/gh/tonsky/FiraCode@5.2/distr/fira_code.css);
+code { font-family: 'Fira Code', monospace; }
+
+@supports (font-variation-settings: normal) {
+    code { font-family: 'Fira Code VF', monospace; }
+}
+
+* {
+    background-color: transparent;
+}
+
+body, html {
+    margin: 0px;
+    font-family: 'Fira Code', 'Courier New', Courier, monospace;
+    user-select: none;
+}
+
+html {
+    scroll-behavior: smooth;
+    min-height: 590px;
+}
+
+body {
+    --text-color: #222;
+    --bkg-color: linear-gradient(130deg, #ffffff 0%, #DAD8D8 20%, #C7C5C8 50% ,#959395 100%);
+    --anchor-color: #888888;
+    --anchor-hover: #000000;
+    overflow-y: auto;
+}
+
+body.dark-theme {
+    --text-color: #eee;
+    --bkg-color: #121212;
+    --anchor-color: #aaaaaa;
+    --anchor-hover: #fffeee;
+}
+
+body {
+    color: var(--text-color);
+    background: var(--bkg-color);
+}
+
+a {
+    color: var(--anchor-color);
+}
+
+ul {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    width: 100vw;
+    position: fixed;
+    top: 0;
+    background: none;
+}
+
+ul li {
+    float: left;
+}
+
+ul li a {
+    height: 100%;
+    display: block;
+    text-align: center;
+    padding: 14px 16px;
+    text-decoration: none;
+}
+
+ul li a:hover {
+    color: var(--anchor-hover);
+    cursor: pointer;
+}
+
+section {
+    margin: 5em 0em;
+}
+
+.btn-toggle {
+    padding: 1em 1em;
+    border: none;
+}
+
+.btn-toggle i {
+    height: 100%;
+}
+
+.btn-toggle:hover {
+    cursor: pointer;
+}
+
+.right-align {
+    float: right;
+}
+
+section.center-content h3 {
+    padding-top: 1em;
+}
+
+section.center-content {
+    margin: 0;
+    min-height: 650px;
+    height: calc(95vh);
+    display: flex;
+    align-items: center;
+}
+
+section.center-content article {
+    margin: auto;
+    text-align: center;
+}
+
+section:not(.center-content) {
+    width: 100vw;
+}
+
+section:not(.center-content) article {
+    width: 65%;
+    line-height: 1.85em;
+    margin: auto;
+    text-align: justify;
+}
+
+#avatar {
+    height: 35vh;
+    border-radius: calc(35vh/2);
+}
