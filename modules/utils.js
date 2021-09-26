@@ -12,10 +12,3 @@ btn.addEventListener("click", function() {
         theme = "dark"
     localStorage.setItem("theme", theme);
 });
-
-/* document.querySelectorAll('a[href^="#]').forEach(anchor => {
-    anchor.addEventListener('click', function(e) {
-        e.preventDefault();
-        document.querySelector(this.getAttribute('href')).scrollIntoView({behavior: 'smooth'});
-    });
-}); */
