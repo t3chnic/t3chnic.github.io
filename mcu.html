@@ -1,0 +1,2334 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>MCU Map</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&display=swap');
+  :root{
+    --void:#070b16; --ink:#eef2fb; --dim:#8590aa; --panel:#0e1626; --edge:#25324f;
+    --bg-glow-a:rgba(63,174,109,.10); --bg-glow-b:rgba(91,124,196,.10);
+    --chip-bg:#111a2c; --btn-bg:#182742; --btn-bg-on:#22345a; --ctl-bg:rgba(14,22,38,.9);
+    --series-fill:#0a1120; --bar-fade-1:rgba(7,11,22,.97); --bar-fade-2:rgba(7,11,22,.6);
+    /* phase palette */
+    --p1:#e0533d; --p2:#e0902f; --p3:#d8c23a; --p4:#3fb98f; --p5:#3f8fd8; --p6:#8a63d8;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{background:
+      radial-gradient(1100px 620px at 82% -6%, var(--bg-glow-a), transparent 60%),
+      radial-gradient(900px 520px at 6% 12%, var(--bg-glow-b), transparent 58%),
+      var(--void);
+    color:var(--ink);font-family:'Barlow',system-ui,sans-serif;overflow:hidden;transition:background .35s,color .35s;
+    touch-action:manipulation}  /* kills native double-tap-to-zoom everywhere except where overridden below */
+
+  .bar{position:fixed;top:0;left:0;right:0;z-index:20;display:flex;align-items:center;gap:18px;
+    padding:13px 20px;background:linear-gradient(180deg,var(--bar-fade-1),var(--bar-fade-2) 75%,transparent);pointer-events:none}
+  .bar h1{font-family:'Oswald';font-weight:700;text-transform:uppercase;font-size:1.25rem;line-height:1}
+  .bar h1 small{display:block;font-family:'Barlow Condensed';font-weight:600;letter-spacing:.28em;
+    font-size:.58rem;color:var(--p4);margin-bottom:3px}
+  .filters{display:flex;gap:7px;flex-wrap:wrap;pointer-events:auto}
+  /* on desktop these wrappers are invisible (display:contents) — their children behave exactly
+     as if they were direct children of .right, same as before this markup was grouped for mobile */
+  .toggleGroup,.counterRow{display:contents}
+  .hint{order:1}
+  #progress{order:2}
+  #spoilerBtn{order:3}
+  #filtersToggle{order:4}
+  #weaveBtn{order:5}
+  #sharesBtn{order:6}
+  .chip{font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.06em;
+    font-size:.68rem;padding:4px 10px;border-radius:20px;border:1px solid var(--edge);
+    background:var(--chip-bg);color:var(--dim);cursor:pointer;transition:.15s;user-select:none}
+  .chip.on{color:#fff}
+  #spoilerBtn{padding:7px 9px;display:inline-flex;align-items:center;justify-content:center}
+  .right{margin-left:auto;display:flex;gap:8px;align-items:center;pointer-events:auto;flex-wrap:wrap;justify-content:flex-end}
+  .toggle{display:flex;background:var(--chip-bg);border:1px solid var(--edge);border-radius:22px;overflow:hidden;flex:0 0 auto}
+  .toggle button{background:none;border:none;color:var(--dim);font-family:'Barlow Condensed';
+    font-weight:600;letter-spacing:.1em;text-transform:uppercase;font-size:.72rem;padding:7px 14px;cursor:pointer;
+    white-space:nowrap;flex:0 0 auto}
+  .toggle button.on{background:var(--btn-bg-on);color:#fff}
+  .hint{font-size:.72rem;color:var(--dim);font-style:italic}
+  .progress{font-family:'Barlow Condensed';font-weight:700;letter-spacing:.06em;font-size:.74rem;
+    color:#2ecc71;background:rgba(46,204,113,.12);border:1px solid rgba(46,204,113,.4);
+    padding:5px 10px;border-radius:20px;pointer-events:auto;white-space:nowrap}
+
+  #stage{position:absolute;inset:0;cursor:grab;touch-action:none}
+  #stage.drag{cursor:grabbing}
+  #tree{position:absolute;top:0;left:0;transform-origin:0 0;transition:none}
+
+  svg{display:block;overflow:visible}
+  .link{fill:none;stroke:var(--edge);stroke-width:1.8;opacity:.5;transition:opacity .2s,stroke-width .2s}
+  .link.weave{stroke-width:2.2;opacity:.9;stroke-dasharray:2 6;stroke-linecap:round;
+    filter:drop-shadow(0 0 3px rgba(179,136,255,.7))}
+  .link.shares{stroke-width:2;opacity:.85;stroke-dasharray:7 5;stroke-linecap:round;
+    filter:drop-shadow(0 0 3px rgba(240,180,70,.65))}
+  .link.saga{stroke-width:3;opacity:.6}
+  .link.theory{stroke-width:2.1;opacity:.7;stroke-dasharray:1 6;stroke-linecap:round;
+    filter:drop-shadow(0 0 4px rgba(224,83,61,.65));animation:theoryPulse 2.4s ease-in-out infinite}
+  svg.dim .link:not(.hot){opacity:.05}
+  .link.hot{opacity:.95;stroke-width:3.2}
+  .link.weave.hot{opacity:.95;stroke-width:2.4}
+  .link.shares.hot{opacity:.98;stroke-width:2.6}
+  .link.theory.hot{opacity:1;stroke-width:2.6}
+  @keyframes theoryPulse{0%,100%{opacity:.45}50%{opacity:.9}}
+  @keyframes theoryGlow{0%,100%{filter:drop-shadow(0 0 0 rgba(224,83,61,0))}50%{filter:drop-shadow(0 0 9px rgba(224,83,61,.85))}}
+
+  .node{cursor:pointer;transition:opacity .2s}
+  .node .card{fill:var(--panel);stroke-width:1.6;rx:9}
+  .node.series .card{stroke-dasharray:3 3;fill:var(--series-fill)}
+  .node.theory .card{stroke-dasharray:2 5;animation:theoryGlow 2.6s ease-in-out infinite}
+  .node .ttl{font-family:'Oswald';font-weight:500;fill:var(--ink)}
+  .node .yr{font-family:'Barlow Condensed';font-weight:600;fill:var(--dim);letter-spacing:.08em}
+  .node .tagtxt{font-family:'Barlow Condensed';font-weight:700;letter-spacing:.05em;
+    text-transform:uppercase;fill:#0a0e18}
+  svg.dim .node{opacity:.12}
+  svg.dim .node.keep{opacity:1}
+  .node.hot .card{filter:drop-shadow(0 0 12px currentColor)}
+  .node.filtered{opacity:.13}
+  .link.filtered{opacity:.05!important}
+
+  #info{position:fixed;z-index:40;max-width:290px;background:var(--panel);border:1px solid var(--edge);
+    border-radius:11px;padding:14px 16px;box-shadow:0 18px 44px rgba(0,0,0,.55);
+    opacity:0;transform:translateY(6px);transition:.15s;pointer-events:none}
+  #info.on{opacity:1;transform:none}
+  #info .t{font-family:'Oswald';font-weight:600;font-size:1.05rem;line-height:1.12}
+  #info .tags{display:flex;gap:5px;flex-wrap:wrap;margin:7px 0 9px}
+  #info .tg{font-family:'Barlow Condensed';font-weight:700;text-transform:uppercase;letter-spacing:.05em;
+    font-size:.64rem;padding:2px 7px;border-radius:5px;color:#0a0e18}
+  #info .d{font-size:.85rem;color:#cdd6ea;line-height:1.45}
+  #info .d.locked{position:relative}
+  #info .d.locked .blurtext{filter:blur(5px);opacity:.7;user-select:none;display:block}
+  #info .d.locked .lockrow{display:block;margin-top:7px;font-size:.72rem;color:#f0c05a;
+    font-family:'Barlow Condensed';letter-spacing:.04em;filter:none}
+  /* mobile tap-to-pin mode: fixed bottom-sheet placement, tappable, with a visible close button.
+     Desktop hover mode never gets the .pinned class, so its cursor-following behavior is untouched. */
+  #info.pinned{pointer-events:auto;left:12px!important;right:12px;top:auto!important;
+    bottom:calc(max(14px,env(safe-area-inset-bottom)) + 66px);max-width:none;width:auto;
+    padding-right:40px}
+  .infoClose{position:absolute;top:10px;right:10px;width:26px;height:26px;border-radius:50%;
+    border:1px solid var(--edge);background:var(--chip-bg);color:var(--ink);font-size:.85rem;
+    cursor:pointer;display:grid;place-items:center;line-height:1}
+  .infoClose:hover{background:var(--btn-bg-on)}
+  .infoCheck{display:flex;align-items:center;gap:10px;margin-top:12px;padding:9px 12px;width:100%;
+    border-radius:9px;border:1px solid var(--edge);background:var(--chip-bg);color:var(--ink);
+    font:600 .85rem 'Barlow',system-ui,sans-serif;cursor:pointer;text-align:left}
+  .infoCheck .box{width:20px;height:20px;border-radius:50%;border:2px solid var(--dim);flex:none;
+    display:grid;place-items:center;font-size:.75rem;line-height:1;color:transparent;transition:.15s}
+  .infoCheck.on{border-color:var(--watched-c,#2ecc71)}
+  .infoCheck.on .box{background:var(--watched-c,#2ecc71);border-color:var(--watched-c,#2ecc71);color:var(--watched-ink,#04120c)}
+  .check{transition:opacity .15s}
+  .check:hover circle{stroke:#2ecc71!important}
+  .node.watched .card{stroke-opacity:.9}
+  .node.watched{filter:saturate(1.05)}
+  #info .c{margin-top:8px;font-size:.78rem}
+  #info .c.f{color:var(--p4)} #info .c.b{color:var(--dim)}
+
+  .ctl{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:20;display:flex;gap:8px;
+    background:var(--ctl-bg);border:1px solid var(--edge);padding:7px;border-radius:30px;backdrop-filter:blur(6px)}
+  .ctl button{background:var(--btn-bg);color:var(--ink);border:1px solid var(--edge);width:34px;height:34px;
+    border-radius:50%;font-size:1rem;cursor:pointer;display:grid;place-items:center}
+  .ctl button:hover{background:var(--btn-bg-on)}
+  .ctl .lbl{display:grid;place-items:center;padding:0 12px;font-size:.74rem;color:var(--dim);
+    font-family:'Barlow Condensed';letter-spacing:.1em;text-transform:uppercase}
+
+  /* separator between zoom controls and the orientation button */
+  #langBtn{font-family:'Oswald',sans-serif;font-weight:700;font-size:.78rem;letter-spacing:.06em}
+  .ctl-sep{width:1px;align-self:stretch;background:var(--edge);margin:2px 2px}
+  /* orientation icon button (inherits .ctl button round style); icon swaps per layout */
+  #orientSwitch svg{width:17px;height:17px;display:block}
+  #orientSwitch svg [data-fill]{fill:var(--ink)}
+
+  /* compact theme icon button — lives in the zoom bar, replaces the dropdown in vertical mode */
+  .themeMenuWrap{position:relative;display:flex}
+  #orderWrap{display:none}
+
+  @media (max-width:760px){
+    /* metro view has one extra button (order) — tighten the bar so it fits a phone */
+    .ctl{gap:6px!important;padding:7px 8px!important}
+    .ctl > button,.themeMenuWrap > button{width:36px!important;height:36px!important;font-size:1.05rem}
+    .ctl .lbl{min-width:58px;padding:0 2px!important;font-size:.62rem!important}
+  }
+  @media (max-width:430px){
+    .ctl .lbl{display:none!important}
+  }
+  @media (max-width:380px){
+    .ctl{gap:4px!important;padding:6px!important}
+    .ctl > button,.themeMenuWrap > button{width:34px!important;height:34px!important}
+  }
+  body.orient-v #orderWrap{display:flex}
+  .themeMenu .omHead{font:600 .62rem 'Barlow Condensed',sans-serif;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);padding:3px 6px 2px}
+  #themeIconBtn svg{display:block}
+  .themeMenu{position:absolute;bottom:calc(100% + 10px);left:50%;
+    transform:translateX(calc(-50% + var(--menu-shift,0px))) translateY(6px);
+    display:flex;flex-direction:column;gap:3px;min-width:132px;
+    background:var(--panel);border:1px solid var(--edge);border-radius:10px;padding:5px;
+    box-shadow:0 14px 34px rgba(0,0,0,.5);opacity:0;pointer-events:none;
+    transition:opacity .15s ease, transform .15s ease}
+  .themeMenu.open{opacity:1;pointer-events:auto;transform:translateX(calc(-50% + var(--menu-shift,0px))) translateY(0)}
+  .themeMenu button{display:flex;align-items:center;gap:7px;background:var(--chip-bg);color:var(--ink);
+    border:1px solid var(--edge);border-radius:7px;padding:6px 9px;font-family:'Barlow Condensed';
+    font-weight:600;font-size:.68rem;letter-spacing:.02em;text-align:left;cursor:pointer;width:100%}
+  .themeMenu button:hover{background:var(--btn-bg-on)}
+  .themeMenu button.active{border-color:var(--p4);color:#fff}
+  .themeSwatch{width:11px;height:11px;border-radius:50%;flex:0 0 auto;border:1px solid rgba(255,255,255,.3)}
+
+  /* dropdown is fully replaced by the compact icon + popover now, in both orientations */
+  .themePicker{position:fixed;bottom:18px;right:18px;z-index:20;display:none;align-items:center;gap:8px;
+    background:var(--ctl-bg);border:1px solid var(--edge);padding:7px 10px 7px 14px;border-radius:30px;
+    backdrop-filter:blur(6px);transition:background .35s,border-color .35s}
+  .themePicker label{font-family:'Barlow Condensed';font-weight:600;letter-spacing:.1em;text-transform:uppercase;
+    font-size:.7rem;color:var(--dim)}
+  .themePicker select{background:var(--panel);color:var(--ink);border:1px solid var(--edge);border-radius:16px;
+    padding:6px 10px;font-family:'Barlow Condensed';font-weight:600;font-size:.76rem;letter-spacing:.04em;
+    cursor:pointer;outline:none}
+  .themePicker select:focus{border-color:var(--p4)}
+
+  /* ---- Jump rail: phase navigator, only relevant in vertical (chapters) layout ---- */
+  .jumpRail{position:fixed;left:14px;top:50%;transform:translateY(-50%);z-index:18;
+    display:flex;flex-direction:column;align-items:center;gap:7px;
+    background:var(--ctl-bg);border:1px solid var(--edge);border-radius:16px;
+    padding:9px 7px;backdrop-filter:blur(6px);transition:transform .25s ease, opacity .25s ease}
+  .jumpRail.collapsed{transform:translateY(-50%) translateX(-52px)}
+  .jumpRail .jrToggle{width:36px;height:36px;border-radius:10px;border:1px solid var(--edge);
+    background:var(--btn-bg);color:var(--ink);cursor:pointer;font-size:1.15rem;line-height:1;
+    display:grid;place-items:center;flex:0 0 auto}
+  .jumpRail .jrToggle:hover{background:var(--btn-bg-on)}
+  .jumpRail .jrPhases{display:flex;flex-direction:column;gap:7px;transition:opacity .2s;overflow:hidden}
+  .jumpRail.collapsed .jrPhases{opacity:0;pointer-events:none;width:0;height:0}
+  .jrPhaseBtn{width:30px;height:30px;border-radius:50%;border:1.5px solid var(--jr-c,var(--edge));
+    background:var(--chip-bg);color:var(--ink);font-family:'Oswald';font-weight:700;font-size:.78rem;
+    cursor:pointer;display:grid;place-items:center;flex:0 0 auto;transition:background .15s}
+  .jrPhaseBtn:hover{background:var(--jr-c,var(--btn-bg-on));color:#04120c}
+  .jumpRail[hidden]{display:none}
+
+  /* mobile-only filter toggle button (hidden on desktop) */
+  .filtersToggle{display:none}
+
+  /* ---------------- MOBILE ---------------- */
+  @media (max-width:760px){
+    .bar{flex-wrap:wrap;gap:8px 10px;padding:10px 12px;
+      background:linear-gradient(180deg,var(--bar-fade-1),var(--bar-fade-1) 100%)}
+    .bar h1{font-size:1.05rem;flex:0 1 auto}
+    .bar h1 small{font-size:.5rem;letter-spacing:.2em}
+    .hint{display:none}
+    /* toggleGroup (God of Stories / Shared Elements) stays transparent — flows near the title on
+       the top row. counterRow (eye icon + counter + tags) gets a guaranteed dedicated row below,
+       left-aligned — width:100% forces the line break, same technique the tag list uses. */
+    .right,.toggleGroup{display:contents}
+    .counterRow{display:flex;align-items:center;gap:8px;width:100%;order:10;pointer-events:auto}
+    /* cancel the desktop-only sequencing order (2/3/4) so DOM order (eye, counter, tags) applies
+       now that counterRow is a real nested flex box on mobile — must match ID specificity to win */
+    #spoilerBtn,#progress,#filtersToggle{order:0}
+    .filtersToggle{display:inline-flex;align-items:center;gap:6px;
+      font-family:'Barlow Condensed';font-weight:600;text-transform:uppercase;letter-spacing:.06em;
+      font-size:.72rem;padding:7px 12px;border-radius:20px;border:1px solid var(--edge);
+      background:var(--chip-bg);color:var(--ink);cursor:pointer}
+    .filtersToggle .cnt{background:var(--p4);color:#04120c;border-radius:10px;
+      padding:0 6px;font-size:.66rem;min-width:16px;text-align:center}
+    /* the expanded tag list itself still gets its own dedicated row at the bottom of the bar —
+       order must be higher than every toolbar button's order (1-6) so it never interleaves with them
+       now that they're all direct flex items of .bar on mobile */
+    .filters{order:20;width:100%;flex-wrap:nowrap;overflow-x:auto;gap:6px;
+      padding:2px 0 4px;-webkit-overflow-scrolling:touch;scrollbar-width:none;touch-action:pan-x}
+    .filters::-webkit-scrollbar{display:none}
+    .filters.collapsed{display:none}
+    .filters .chip{flex:0 0 auto;padding:7px 12px;font-size:.72rem}
+    #weaveBtn{font-size:.68rem;padding:6px 10px}
+    .toggle button{padding:8px 12px;font-size:.7rem}
+    /* bigger touch targets for zoom controls, sit above home bar */
+    .ctl{bottom:max(14px,env(safe-area-inset-bottom));gap:10px;padding:8px}
+    .ctl button{width:42px;height:42px;font-size:1.15rem}
+    #themeMenu button,#orderMenu button{width:100%;height:auto;font-size:.68rem}   /* not a zoom control — override .ctl button's fixed square sizing */
+    .ctl .lbl{padding:0 8px;font-size:.7rem}
+    #info{max-width:min(84vw,290px)}
+    .themePicker{right:10px;bottom:calc(max(14px,env(safe-area-inset-bottom)) + 66px);padding:5px 8px 5px 10px;gap:5px}
+    .themePicker label{display:none}
+    .themePicker select{font-size:.7rem;padding:5px 8px}
+  }
+  @media (max-width:400px){
+    .bar h1 small{display:none}
+    .bar h1{font-size:.95rem}
+  }
+  /* hidden easter-egg toggle: near-invisible until hovered/discovered */
+  #theoryDot{display:inline-block;margin-left:7px;font-size:.5em;opacity:.08;cursor:default;
+    vertical-align:super;user-select:none;transition:opacity .5s,color .5s;pointer-events:auto}
+  #theoryDot:hover{opacity:.55;cursor:pointer}
+  #theoryDot.on{opacity:1;color:#e0533d;animation:theoryGlow 2.6s ease-in-out infinite}
+
+  /* ================= SUBWAY VIEW (B) + FOCUS VIEW (C) ================= */
+  body.orient-v .ctl{z-index:37}
+  body.orient-v #reset{display:none}
+  body.orient-v .ctl .lbl{min-width:74px;text-transform:uppercase;font:600 .7rem 'Barlow Condensed';letter-spacing:.08em}
+  .ctl button:disabled{opacity:.35;cursor:default}
+  #subMapWrap{touch-action:pan-y}
+  #subMap{padding-bottom:96px}
+  #subway{position:fixed;inset:0;z-index:35;background:var(--void);display:none;color:var(--ink);font-family:'Barlow',system-ui,sans-serif}
+  #subway.on{display:block}
+  #subMapWrap,#subFocus{position:absolute;inset:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;
+    transition:opacity .28s ease,transform .34s cubic-bezier(.2,.8,.2,1)}
+  #subMapWrap.away{opacity:0;transform:scale(.97);pointer-events:none}
+  #subFocus{opacity:0;pointer-events:none;transform:translateY(14px)}
+  #subFocus.on{opacity:1;pointer-events:auto;transform:none}
+  .subInner{max-width:640px;margin:0 auto}
+  #subHead{position:sticky;top:0;z-index:3;background:var(--void);padding:12px 14px 8px;border-bottom:1px solid var(--edge)}
+  .subTop{display:flex;align-items:center;gap:10px}
+  .subTitle{font-family:'Oswald';font-weight:700;text-transform:uppercase;font-size:1.1rem;flex:1;line-height:1}
+  .subTitle small{display:block;font-family:'Barlow Condensed';font-weight:600;letter-spacing:.24em;font-size:.56rem;color:var(--p4,#3fb98f);margin-bottom:3px}
+  .subProg{font:600 .78rem 'Barlow Condensed';letter-spacing:.06em;color:#2ecc71;border:1px solid rgba(46,204,113,.45);border-radius:999px;padding:4px 9px}
+  .subBtn{background:var(--btn-bg);color:var(--ink);border:1px solid var(--edge);border-radius:999px;padding:6px 12px;
+    font:600 .76rem 'Barlow Condensed';letter-spacing:.07em;text-transform:uppercase;cursor:pointer;white-space:nowrap}
+  .subBtn:hover{background:var(--btn-bg-on)}
+  #subSpoil{padding:6px 9px;line-height:0}
+  #subTip{position:fixed;z-index:45;pointer-events:none;opacity:0;transform:translateY(4px);transition:opacity .12s,transform .12s;
+    font:600 .74rem 'Barlow Condensed';letter-spacing:.08em;text-transform:uppercase;color:#fff;background:var(--c,#333);
+    border-radius:999px;padding:4px 10px;box-shadow:0 6px 18px rgba(0,0,0,.35);white-space:nowrap}
+  #subTip.on{opacity:1;transform:none}
+  #subMap .track{transition:stroke-width .12s}
+  #subMap .track.hl{stroke-width:7px}
+  #subMap g.row.lineSel .lead{stroke-width:1.8;opacity:1}
+  #subMap .track.gap.hl{stroke-width:3px;opacity:1}
+  #subMap .trackHit{cursor:help}
+  .subOrder{display:flex;align-items:center;gap:4px;margin-top:9px;flex-wrap:wrap}
+  .subOrder span{font:600 .66rem 'Barlow Condensed';letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-right:4px}
+  .subOrd{background:var(--chip-bg);color:var(--dim);border:1px solid var(--edge);border-radius:999px;padding:3px 10px;cursor:pointer;
+    font:600 .7rem 'Barlow Condensed';letter-spacing:.07em;text-transform:uppercase}
+  .subOrd.on{background:var(--btn-bg-on);color:var(--ink);border-color:var(--dim)}
+  body.theme-comic .subOrder span{color:#fff}
+  body.theme-comic .subOrd{border:2px solid #141010;border-radius:3px;background:#fff;color:#141010}
+  body.theme-comic .subOrd.on{background:#ffc400}
+  body.theme-hud .subOrd{border-radius:2px}
+  .subChips{display:flex;gap:6px;overflow-x:auto;padding:10px 0 2px;scrollbar-width:none}
+  .subChips::-webkit-scrollbar{display:none}
+  .subChip{flex:none;border:1.5px solid var(--c);background:transparent;color:var(--dim);border-radius:999px;padding:5px 11px;
+    font:600 .74rem 'Barlow Condensed';letter-spacing:.07em;text-transform:uppercase;cursor:pointer;transition:.15s}
+  .subChip.on{background:var(--c);color:#fff}
+  .subHint{font-size:.72rem;color:var(--dim);min-height:1.1em;margin-top:5px;transition:color .2s}
+  .subHint.warn{color:#e0533d}
+  #subMap svg{display:block;width:100%}
+  #subMap .row{cursor:pointer}
+  #subMap .rowBg{fill:transparent;transition:fill .18s}
+  #subMap .row:hover .rowBg{fill:var(--chip-bg)}
+  #subMap .row.st{cursor:pointer}
+  #subMap .lead{transition:stroke-width .15s,opacity .15s}
+  #subMap g.act .lead{stroke-width:2;opacity:1}
+  #subMap g.row circle,#subMap g.row rect:not(.rowBg){transform-box:fill-box;transform-origin:center;transition:transform .15s ease}
+  #subMap g.act circle,#subMap g.act polygon{transform:scale(1.5)}
+  #subMap g.row .thRing{transform-box:fill-box;transform-origin:center}
+  #subMap g.act .thRing{transform:scale(1.3)}
+  #subMap g.row polygon,#subMap g.row .ix{transform-box:fill-box;transform-origin:center;transition:transform .15s ease}
+  #subMap g.act .ix{transform:scale(1.08,1.35)}
+  #subMap g.act rect:not(.rowBg){transform:scale(1.06,1.4)}
+  #subMap g.act rect.solo{transform:scale(1.5)}
+  .subCodes{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:6px}
+  .subCodes{align-items:center}
+  .subCodeLab{font:600 .66rem 'Barlow Condensed';letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+  .subCode{font:600 .66rem 'Barlow Condensed';letter-spacing:.07em;text-transform:uppercase;color:#fff;background:var(--c);
+    border-radius:999px;padding:2px 8px;opacity:.85;cursor:default;user-select:none}
+  #subMap g.act .rowBg{fill:var(--chip-bg)}
+  #subMap .rowBg.flash{animation:subFlash 1.5s ease}
+  @keyframes subFlash{0%,45%{fill:var(--btn-bg-on)}100%{fill:transparent}}
+  .subEmpty{padding:60px 20px;text-align:center;color:var(--dim)}
+
+  .sfWrap{max-width:560px;margin:0 auto;padding:0 16px 110px}
+  .sfTop{position:sticky;top:0;z-index:3;background:var(--void);padding:12px 0 10px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--edge);margin-bottom:14px}
+  .sfTop .ln{flex:1;display:flex;gap:5px;justify-content:flex-end;flex-wrap:wrap}
+  .sfTop .ln span{font:600 .66rem 'Barlow Condensed';letter-spacing:.08em;text-transform:uppercase;color:var(--c);border:1.5px solid var(--c);border-radius:999px;padding:2px 8px}
+  .sfLab{font:600 .7rem 'Barlow Condensed';letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin:0 0 7px;text-align:center}
+  .sfChips{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+  .sfChip{display:inline-flex;align-items:center;gap:7px;background:var(--panel);border:1px solid var(--edge);color:var(--ink);
+    border-radius:10px;padding:7px 11px;font:500 .86rem 'Barlow',system-ui,sans-serif;cursor:pointer;text-align:left;max-width:100%}
+  .sfChip:hover{border-color:var(--dim)}
+  .sfChip i{width:9px;height:9px;border-radius:50%;flex:none}
+  .sfChip small{color:var(--dim);font-size:.72rem}
+  .sfChip.x{border-style:dashed}
+  .sfChip.w i{box-shadow:0 0 0 2px var(--panel),0 0 0 3.5px #2ecc71}
+  .sfRails{display:flex;justify-content:center;gap:9px;height:34px;margin:8px 0}
+  .sfRails span{width:5px;border-radius:3px}
+  .sfCard{background:var(--panel);border:1.5px solid var(--edge);border-radius:14px;padding:16px 16px 14px;box-shadow:0 18px 40px rgba(0,0,0,.4)}
+  .sfCard .t{font-family:'Oswald';font-weight:600;font-size:1.4rem;line-height:1.1}
+  .sfMeta{font-size:.8rem;color:var(--dim);margin:5px 0 9px}
+  .sfTags{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:11px}
+  .sfTags span{font:600 .66rem 'Barlow Condensed';letter-spacing:.08em;text-transform:uppercase;padding:2px 7px;border-radius:4px;color:#fff}
+  .sfDesc{font-size:.96rem;line-height:1.5}
+  .sfDesc.locked{filter:blur(5px);user-select:none}
+  .sfLock{font-size:.76rem;color:var(--dim);margin-top:6px}
+  .sfSec{margin:18px 0 0}
+  .sfLine{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:8px;align-items:center;margin:0 0 8px}
+  .sfLine .nm{font:600 .68rem 'Barlow Condensed';letter-spacing:.1em;text-transform:uppercase;color:var(--c);padding:3px 9px;border:1.5px solid var(--c);border-radius:999px;white-space:nowrap}
+  .sfLine .sfChip{width:100%;font-size:.8rem;padding:6px 9px}
+  .sfLine .prev{justify-content:flex-end;text-align:right}
+  .sfLine .end{font-size:.72rem;color:var(--dim);text-align:center;font-style:italic}
+  .infoFocusBtn{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:8px;padding:9px 12px;width:100%;
+    border-radius:9px;border:1px solid var(--edge);background:var(--btn-bg-on);color:var(--ink);
+    font:600 .85rem 'Barlow',system-ui,sans-serif;cursor:pointer}
+  .infoFocusBtn:hover{filter:brightness(1.15)}
+
+  /* ================= COMIC PAGE THEME ================= */
+  body.theme-comic{background-color:#fff7e0;background-image:radial-gradient(rgba(232,170,20,.26) 1px,transparent 1.3px);background-size:7px 7px}
+  body.theme-comic #subway{background-color:#fff7e0;background-image:radial-gradient(rgba(232,170,20,.26) 1px,transparent 1.3px);background-size:7px 7px}
+  /* legibility: titles get a paper-coloured halo so the dot texture and tracks never run through the letters */
+  body.theme-comic #subMap g.row text{paint-order:stroke;stroke:#fff7e0;stroke-width:4px;stroke-linejoin:round}
+  body.theme-comic #subMap g.row text tspan{paint-order:stroke}
+  body.theme-comic #subMap g.act text{stroke:#ffc400}
+  body.theme-comic #subMap .lead{opacity:.55}
+  body.theme-comic .bar h1,body.theme-comic .subTitle,body.theme-comic #info .t,body.theme-comic .sfCard .t,
+  body.theme-comic .chip,body.theme-comic .subChip,body.theme-comic .subBtn,body.theme-comic .filtersToggle,body.theme-comic .sfLab,
+  body.theme-comic .sfLine .nm,body.theme-comic .ctl .lbl{font-family:'Arial Black',Impact,system-ui,sans-serif!important;letter-spacing:.02em}
+  /* same look as the graph header: paper background, ink title, green kicker */
+  body.theme-comic #subHead{background:#fff7e0}
+  body.theme-comic .subProg{background:#fff;color:#141010;border:2px solid #141010;border-radius:0}
+  body.theme-comic .subChip,body.theme-comic .chip,body.theme-comic .subBtn,body.theme-comic .filtersToggle,body.theme-comic .sfChip{
+    border:2px solid #141010!important;border-radius:3px;background:#fff;color:#141010}
+  body.theme-comic .subChip.on{background:var(--c);color:#141010}
+  body.theme-comic #info,body.theme-comic .sfCard{background:#fff;border:2.5px solid #141010;border-radius:0;box-shadow:6px 6px 0 #141010}
+  body.theme-comic #info .d,body.theme-comic .sfDesc{color:#141010}
+  body.theme-comic #info .tg,body.theme-comic .sfTags span{color:#141010!important;border:1.5px solid #141010;border-radius:2px}
+  body.theme-comic .infoCheck,body.theme-comic .infoFocusBtn{border:2px solid #141010;border-radius:0}
+  body.theme-comic .infoFocusBtn{background:#ffc400;color:#141010}
+  body.theme-comic .ctl{background:#fff;border:2.5px solid #141010;border-radius:6px;box-shadow:4px 4px 0 #141010}
+  body.theme-comic .ctl > button,body.theme-comic .themeMenuWrap > button,body.theme-comic #orderWrap > button{background:#fff;border:2px solid #141010;color:#141010;border-radius:50%}
+  body.theme-comic .themeMenu{background:#fff;border:2.5px solid #141010;border-radius:0;box-shadow:5px 5px 0 #141010;padding:4px}
+  body.theme-comic .themeMenu button{border:0;border-radius:0;background:transparent;color:#141010}
+  body.theme-comic .themeMenu button:hover,body.theme-comic .themeMenu button.active{background:#ffc400}
+  body.theme-comic .themeMenu .themeSwatch{border:1.5px solid #141010}
+  body.theme-comic .sfTop{background:#fff7e0}
+  body.theme-comic .node .card{stroke-width:2.2}
+  /* selection: B's tilted ink panel, in A's caption-box yellow */
+  body.theme-comic #subMap .rowBg{rx:0}
+  body.theme-comic #subMap .row:hover .rowBg{fill:rgba(255,196,0,.25)}
+  body.theme-comic #subMap g.act .rowBg{fill:#ffc400;stroke:#141010;stroke-width:2.6px;transform-box:fill-box;transform-origin:center;transform:rotate(var(--tilt,-1.2deg))}
+  body.theme-comic #subMap g.act text{font-weight:900}
+
+  /* ================= STARK HUD THEME ================= */
+  body.theme-hud, body.theme-hud *{font-family:ui-monospace,'JetBrains Mono','SF Mono',Menlo,Consolas,monospace!important}
+  body.theme-hud{background-image:linear-gradient(rgba(76,201,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(76,201,255,.05) 1px,transparent 1px);background-size:22px 22px}
+  body.theme-hud #subway{background-color:var(--void);background-image:linear-gradient(rgba(76,201,255,.055) 1px,transparent 1px),linear-gradient(90deg,rgba(76,201,255,.055) 1px,transparent 1px);background-size:22px 22px}
+  body.theme-hud #subHead,body.theme-hud .sfTop{background:#020a10}
+  body.theme-hud .node .card{rx:2px;stroke-width:1.1}
+  body.theme-hud #info,body.theme-hud .sfCard{border-radius:0;border-color:#1d5a7d;box-shadow:0 0 0 1px rgba(76,201,255,.08),0 18px 40px rgba(0,0,0,.5);
+    clip-path:polygon(12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%,0 12px)}
+  body.theme-hud .chip,body.theme-hud .subChip,body.theme-hud .subBtn,body.theme-hud .sfChip,body.theme-hud .infoCheck,body.theme-hud .infoFocusBtn,
+  body.theme-hud .subProg,body.theme-hud .filtersToggle{border-radius:2px}
+  body.theme-hud .ctl{border-radius:4px}
+  body.theme-hud .ctl > button,body.theme-hud .themeMenuWrap > button{border-radius:3px}
+  body.theme-hud .themeMenu{border-radius:0;clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px)}
+  body.theme-hud .bar h1,body.theme-hud .subTitle{letter-spacing:.18em;font-weight:600}
+  body.theme-hud .bar h1 small,body.theme-hud .subTitle small{color:#36f1b4}
+  body.theme-hud .sfCard .t,body.theme-hud #info .t{text-transform:uppercase;letter-spacing:.06em;font-size:1.05rem}
+  body.theme-hud .sfRails span{width:2px;box-shadow:0 0 6px currentColor}
+  body.theme-hud .subChip.on{color:#02101a}
+  /* theme tags (popup, focus card, graph filters): outlined, tappable */
+  .thTag{background:transparent!important;color:var(--c)!important;border:1.5px solid var(--c)}
+  .sfTags .thTag{padding:1px 7px}
+  .fDiv{flex-basis:100%;height:0}   /* line break: theme chips start on their own row */
+  .chip.thChip{border-style:dashed}
+  /* metro theme highlight */
+  .subThemePill{display:inline-flex;align-items:center;gap:6px;border:0;border-radius:999px;padding:3px 10px;cursor:pointer;
+    background:var(--c);color:#fff;font:600 .72rem 'Barlow Condensed',sans-serif;letter-spacing:.08em;text-transform:uppercase}
+  #subMap.hasTheme .dimTrk{opacity:.28}
+  #subMap.hasTheme g.row.st.off{opacity:.3}
+  /* in memoriam note */
+  .memo{margin:10px 0 2px;padding:7px 10px;border-left:2px solid var(--dim);background:var(--chip-bg);border-radius:0 6px 6px 0;
+    font-size:.78rem;line-height:1.45;color:var(--dim);font-style:italic}
+  .memo div+div{margin-top:3px}
+  .memoLab{display:block;font:600 .62rem 'Barlow Condensed',sans-serif;font-style:normal;letter-spacing:.16em;text-transform:uppercase;margin-bottom:2px}
+  body.theme-comic .memo{background:#fff;border-left:3px solid #141010;color:#3a3226}
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <h1><small>Marvel Cinematic Universe</small>Stories<span id="theoryDot">•</span></h1>
+  <div class="right">
+    <span class="hint">hover to trace · tap ✓ to mark watched</span>
+    <div class="toggleGroup" id="toggleGroup">
+      <button id="weaveBtn" class="chip" title="Show Loki's TVA / multiverse threads (God of Stories)">✦ God of Stories</button>
+      <button id="sharesBtn" class="chip" title="Show shared plot elements / resources (not story setups)">◈ Shared Elements</button>
+    </div>
+    <div class="counterRow" id="counterRow">
+      <button id="spoilerBtn" class="chip on" title="Spoiler-free: unwatched descriptions stay blurred"><svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" style="display:block" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.6 10.6 0 0 1 12 5c7 0 11 7 11 7a17.7 17.7 0 0 1-3.4 4.3M7 6.6C3.4 8.6 1 12 1 12s4 7 11 7a10 10 0 0 0 4.2-.9"/><path d="M9.5 10a3 3 0 0 0 4.1 4.2"/></svg></button>
+      <span id="progress" class="progress" title="Movies & shows watched">✓ 0/53</span>
+      <button class="filtersToggle" id="filtersToggle">Tags <span class="cnt" id="tagCount" style="display:none">0</span></button>
+    </div>
+  </div>
+  <div class="filters" id="filters"></div>
+</div>
+
+<div id="stage"><div id="tree"></div></div>
+<div id="info"></div>
+<div id="subway" aria-label="Subway map">
+  <div id="subMapWrap"><div class="subInner"><div id="subHead"></div><div id="subMap"></div></div></div>
+  <div id="subFocus"></div>
+  <div id="subTip" role="tooltip"></div>
+</div>
+<div id="jumpRail" class="jumpRail"></div>
+<div class="themePicker">
+  <label for="themeSel">Theme</label>
+  <select id="themeSel">
+    <option value="midnight">Midnight (default)</option>
+    <option value="tva">TVA Terminal</option>
+    <option value="hud">Stark HUD</option>
+    <option value="comic">Comic Page</option>
+  </select>
+</div>
+<div class="ctl">
+  <button id="zout">−</button><div class="lbl" id="zlbl">FIT</div>
+  <button id="zin">+</button><button id="reset">⟲</button>
+  <div class="themeMenuWrap" id="orderWrap">
+    <button id="orderBtn" aria-label="Order"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v16M3 16l4 4 4-4"/><path d="M17 20V4M13 8l4-4 4 4"/></svg></button>
+    <div id="orderMenu" class="themeMenu" role="menu"></div>
+  </div>
+  <div class="ctl-sep"></div>
+  <button id="orientSwitch" title="Toggle layout: Metro lines / Graph" aria-label="Toggle layout orientation"></button>
+  <button id="langBtn" aria-label="Language / Idioma">PT</button>
+  <div class="themeMenuWrap">
+    <button id="themeIconBtn" title="Switch theme" aria-label="Switch theme">
+      <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
+        <circle cx="12" cy="12" r="9" fill="#0e1626" stroke="currentColor" stroke-width="1.4"/>
+        <path d="M12 3 A9 9 0 0 1 12 21 Z" fill="#d68a2c"/>
+      </svg>
+    </button>
+    <div id="themeMenu" class="themeMenu"></div>
+  </div>
+</div>
+
+<script>
+// Outside Claude's chat preview (e.g. the published page) there is no window.storage:
+// fall back to this browser's own storage so watched titles and settings are remembered on the device.
+if(!window.storage){
+  window.storage={
+    get:async k=>{ try{ const v=localStorage.getItem(k); return v==null?null:{key:k,value:v}; }catch(e){ return null; } },
+    set:async (k,v)=>{ try{ localStorage.setItem(k,v); }catch(e){} return {key:k,value:v}; },
+    delete:async k=>{ try{ localStorage.removeItem(k); }catch(e){} return {key:k,deleted:true}; }
+  };
+}
+// ---------------- TAG DEFINITIONS ----------------
+let PHASE_COLOR={0:"#5a6478",1:"#e0533d",2:"#e0902f",3:"#d8c23a",4:"#3fb98f",5:"#3f8fd8",6:"#8a63d8",7:"#d0508c"};
+const MAX_PHASE=7;
+// franchise tags with their own colors (shown as chips inside nodes)
+// Tags come in two kinds:
+//  · series  — a film/series franchise. In the metro view each series is a line.
+//  · theme   — a thread that cuts across series. In the metro view a theme is shown by highlighting, never as a line.
+const FRAN={
+  // series
+  iron:{l:"Iron Man",c:"#d1443a",kind:"series"}, cap:{l:"Cap",c:"#4d7bd1",kind:"series"}, thor:{l:"Thor",c:"#4aa3c4",kind:"series"},
+  team:{l:"Avengers",c:"#c9a13b",kind:"series"}, widow:{l:"Black Widow",c:"#a7a9be",kind:"series"}, hulk:{l:"Hulk",c:"#8fbf3a",kind:"series"},
+  cmarvel:{l:"Capt. Marvel",c:"#e8954a",kind:"series"}, drstrange:{l:"Dr. Strange",c:"#7f5be0",kind:"series"},
+  wanda:{l:"Wanda",c:"#d9447a",kind:"series"}, antman:{l:"Ant-Man",c:"#ff7f6e",kind:"series"},
+  guard:{l:"Guardians",c:"#54ad5c",kind:"series"}, spidey:{l:"Spidey",c:"#c74b58",kind:"series"},
+  wakanda:{l:"Wakanda",c:"#3f9b8c",kind:"series"}, ff:{l:"Fan. Four",c:"#6a8cff",kind:"series"},
+  xmen:{l:"X-Men",c:"#6b8cae",kind:"series"}, dd:{l:"Daredevil",c:"#b23a5c",kind:"series"},
+  // themes
+  strange:{l:"Mystic",c:"#9b6cd0",kind:"theme"}, multiverse:{l:"Multiverse",c:"#2bb3c0",kind:"theme"},
+  cosmic:{l:"Cosmic",c:"#7a86c4",kind:"theme"}, street:{l:"Street",c:"#b05a4a",kind:"theme"}
+};
+const isTheme=k=>FRAN[k]&&FRAN[k].kind==="theme";
+const isSeries=k=>FRAN[k]&&FRAN[k].kind==="series";
+
+// Metro view: every series is a (toggleable) line; themes are highlighted, never drawn as lines
+const SUB_CODES=[];
+const SUB_LINE_KEYS=Object.keys(FRAN).filter(isSeries);
+// left-to-right lane order, chosen so common interchanges sit on neighbouring lanes
+// (Spidey|Strange|Wanda, Cap|Avengers, Avengers|Wakanda|Fan. Four for Doomsday, Widow next to Cap/Avengers)
+const SUB_LANE_ORDER=["xmen","spidey","drstrange","wanda","antman","hulk","iron","widow","cap","team","wakanda","ff","thor","guard","cmarvel","dd"];
+
+// Sub-universes nested inside the Legacy phase (Phase 0) — each gets its own mini-band with a
+// header, and its nodes are colored by sub-universe instead of the flat Legacy grey.
+const LEGACY_GROUPS=[
+  {key:"fox",     label:"Fox X-Men-Verse",     color:"#6b8cae"},
+  {key:"netflix", label:"Netflix Marvel-Verse", color:"#b23a5c"},
+  {key:"sony",    label:"Sony Spider-Verse",   color:"#d68a3f"}
+];
+const LEGACY_ORDER={}; LEGACY_GROUPS.forEach((g,i)=>LEGACY_ORDER[g.key]=i);
+const LEGACY_COLOR={}; LEGACY_GROUPS.forEach(g=>LEGACY_COLOR[g.key]=g.color);
+
+// ---------------- THEMES ----------------
+// Each theme sets the CSS chrome variables + the JS accent colors used when drawing SVG.
+const THEMES={
+  midnight:{
+    label:"Midnight (default)",
+    css:{ "--void":"#070b16","--ink":"#eef2fb","--dim":"#8590aa","--panel":"#0e1626",
+          "--edge":"#25324f","--bg-glow-a":"rgba(63,174,109,.10)","--bg-glow-b":"rgba(91,124,196,.10)",
+          "--chip-bg":"#111a2c","--btn-bg":"#182742","--btn-bg-on":"#22345a","--ctl-bg":"rgba(14,22,38,.9)",
+          "--series-fill":"#0a1120","--bar-fade-1":"rgba(7,11,22,.97)","--bar-fade-2":"rgba(7,11,22,.6)" },
+    phase:{0:"#5a6478",1:"#e0533d",2:"#e0902f",3:"#d8c23a",4:"#3fb98f",5:"#3f8fd8",6:"#8a63d8",7:"#d0508c"},
+    weave:"#b388ff", share:"#f0b446", watched:"#2ecc71", watchedInk:"#04120c",
+    nodeFill:"#0e1728", nodeFillSeries:"#0a1120", edgeStroke:"#25324f", ckStroke:"#4a5570",
+    fontStack:"'Barlow',system-ui,sans-serif"
+  },
+  tva:{
+    // Time Variance Authority analog-terminal look: cream paper, burnt orange, brown, amber CRT
+    label:"TVA Terminal",
+    css:{ "--void":"#241a10","--ink":"#f4ead2","--dim":"#b39a6f",
+          "--panel":"#2f2416","--edge":"#5b4526","--bg-glow-a":"rgba(214,138,44,.10)","--bg-glow-b":"rgba(120,80,30,.12)",
+          "--chip-bg":"#3a2c17","--btn-bg":"#42311a","--btn-bg-on":"#6b4a24","--ctl-bg":"rgba(47,36,22,.92)",
+          "--series-fill":"#241b0d","--bar-fade-1":"rgba(36,26,16,.97)","--bar-fade-2":"rgba(36,26,16,.6)" },
+    // phases keep meaning but re-hued into the TVA orange/brown/cream ramp
+    phase:{0:"#6b5d4a",1:"#c9622a",2:"#d98a2b",3:"#e3b24a",4:"#a8894a",5:"#c98b3c",6:"#8a5a2a",7:"#9c4a3a"},
+    weave:"#e0a53a", share:"#d6682c", watched:"#7a9b3c", watchedInk:"#1c1608",
+    nodeFill:"#33260f", nodeFillSeries:"#2a2010", edgeStroke:"#5b4526", ckStroke:"#7a6038",
+    fontStack:"'Barlow',system-ui,sans-serif"
+  }
+};
+THEMES.hud={
+  // Stark HUD: holographic heads-up display — monospace, grid, chamfered panels, thin lit wires, diamond stations
+  label:"Stark HUD",
+  css:{ "--void":"#020a10","--ink":"#d9f6ff","--dim":"#5f8ea3","--panel":"#05141f",
+        "--edge":"#123a52","--bg-glow-a":"rgba(76,201,255,.08)","--bg-glow-b":"rgba(54,241,180,.05)",
+        "--chip-bg":"#071b29","--btn-bg":"#0a2233","--btn-bg-on":"#11405c","--ctl-bg":"rgba(2,10,16,.92)",
+        "--series-fill":"#03101a","--bar-fade-1":"rgba(2,10,16,.97)","--bar-fade-2":"rgba(2,10,16,.6)" },
+  phase:{0:"#3d6577",1:"#ff5d73",2:"#ff9f43",3:"#ffd166",4:"#36f1b4",5:"#4cc9ff",6:"#b48cff",7:"#ff6ad5"},
+  weave:"#b48cff", share:"#ffd166", watched:"#36f1b4", watchedInk:"#02130c",
+  nodeFill:"#05141f", nodeFillSeries:"#03101a", edgeStroke:"#123a52", ckStroke:"#3f7c96",
+  fontStack:"ui-monospace,'JetBrains Mono',Menlo,Consolas,monospace",
+  bodyClass:"theme-hud",
+  // brighter line colours so the thin wires read on the near-black grid
+  fran:{iron:"#ff5d5d",cap:"#4cc9ff",thor:"#5fe0ff",team:"#ffd166",guard:"#5cf08a",spidey:"#ff5d73",wakanda:"#36f1b4",ff:"#8aa8ff",xmen:"#8fb8e0",
+        widow:"#c9d2e8",hulk:"#b6f04a",cmarvel:"#ffa94d",drstrange:"#a98cff",wanda:"#ff5fa2",antman:"#ff8f7a",dd:"#ff4f86",
+        strange:"#c58cff",multiverse:"#3ee0e8",cosmic:"#9fa8ff",street:"#ff8a5c"},
+  metro:{station:"diamond", track:"wire", upper:true, logged:true}
+};
+THEMES.comic={
+  // Comic page: newsprint paper with Ben-Day dots, black ink outlines, bold primaries, yellow tilted panel for the selection
+  label:"Comic Page",
+  css:{ "--void":"#fff7e0","--ink":"#141010","--dim":"#6f6250","--panel":"#ffffff",
+        "--edge":"#2a2420","--bg-glow-a":"rgba(255,196,0,.0)","--bg-glow-b":"rgba(255,42,61,.0)",
+        "--chip-bg":"#ffffff","--btn-bg":"#ffffff","--btn-bg-on":"#ffc400","--ctl-bg":"rgba(255,247,224,.96)",
+        "--series-fill":"#fff3cf","--bar-fade-1":"rgba(255,247,224,.97)","--bar-fade-2":"rgba(255,247,224,.6)" },
+  phase:{0:"#6b5f50",1:"#e8172e",2:"#f26b00",3:"#d49b00",4:"#00a35f",5:"#2f6bff",6:"#8a2be2",7:"#ff2d8f"},
+  weave:"#8a2be2", share:"#f26b00", watched:"#e8172e", watchedInk:"#ffffff",
+  nodeFill:"#ffffff", nodeFillSeries:"#fff3cf", edgeStroke:"#3a3226", ckStroke:"#141010",
+  fontStack:"'Arial Black',Impact,system-ui,sans-serif",
+  bodyClass:"theme-comic",
+  fran:{iron:"#e8172e",cap:"#2f6bff",thor:"#18a9e0",team:"#ffc400",guard:"#22b14c",spidey:"#ff2a3d",wakanda:"#00a88a",ff:"#3a7bff",xmen:"#f5b800",
+        widow:"#6b6f80",hulk:"#7cc000",cmarvel:"#ff8a00",drstrange:"#6a2be2",wanda:"#e0115f",antman:"#ff5a4a",dd:"#c4002f",
+        strange:"#9b3dff",multiverse:"#00b8c8",cosmic:"#6f6cff",street:"#d2551f"},
+  metro:{track:"ink", station:"comic"}
+};
+const FRAN_BASE={}; Object.entries(FRAN).forEach(([k,f])=>FRAN_BASE[k]=f.c);
+// per-theme extras beyond colour variables: body class (fonts, shapes, textures) and line colours
+function applyThemeExtras(t){
+  Object.values(THEMES).forEach(x=>{ if(x.bodyClass) document.body.classList.remove(x.bodyClass); });
+  if(t.bodyClass) document.body.classList.add(t.bodyClass);
+  Object.keys(FRAN).forEach(k=>{ FRAN[k].c=(t.fran&&t.fran[k])||FRAN_BASE[k]; });
+}
+let currentTheme="midnight";
+
+function applyTheme(name){
+  const t=THEMES[name]; if(!t) return;
+  currentTheme=name;
+  // 1) CSS chrome variables
+  const root=document.documentElement;
+  Object.entries(t.css).forEach(([k,v])=>root.style.setProperty(k,v));
+  // 2) JS accent colors used when drawing the SVG
+  PHASE_COLOR={...t.phase};
+  WEAVE_COLOR=t.weave; SHARE_COLOR=t.share;
+  WATCHED_COLOR=t.watched; WATCHED_INK=t.watchedInk;
+  NODE_FILL=t.nodeFill; NODE_FILL_SERIES=t.nodeFillSeries;
+  EDGE_STROKE=t.edgeStroke; CK_STROKE=t.ckStroke;
+  applyThemeExtras(t);
+  if(typeof renderFilters==="function") renderFilters();
+  if(typeof subOpen!=="undefined" && subOpen){ renderSubway(); if(subFocus) renderFocus(subFocus,{keepScroll:true}); }
+  // 3) persist choice
+  try{ if(window.storage) window.storage.set("mcu:theme", name); }catch(e){}
+  // 4) redraw if the tree already exists
+  if(typeof svg!=="undefined" && svg){ build(); refreshThemedButtons(); }
+}
+async function loadTheme(){
+  try{
+    const r=await window.storage.get("mcu:theme");
+    if(r&&r.value&&THEMES[r.value]) currentTheme=r.value;
+  }catch(e){}
+}
+// re-tint the accent toggle buttons that use inline colors
+function refreshThemedButtons(){
+  const wb=document.getElementById("weaveBtn");
+  if(wb){ wb.style.borderColor=WEAVE_COLOR; if(showWeaves) wb.style.background=WEAVE_COLOR; }
+  const sb=document.getElementById("sharesBtn");
+  if(sb){ sb.style.borderColor=SHARE_COLOR; if(showShares){ sb.style.background=SHARE_COLOR; sb.style.color="#1a1305";} }
+}
+
+// ---------------- DATA ----------------
+// parent = the node this grows FROM (defines tree structure). links = extra "sets up" edges.
+// fr = franchise tags (1-2). saga tag derived from phase.
+const N=[
+  // Phase 0 — Legacy Multiverse (pre-MCU continuities; only become relevant via multiverse crossover)
+  {id:"xm1",t:"X-Men",y:2000,p:0,fr:["xmen"],legacy:"fox",parent:null,links:["xm2"],d:"Estreia dos mutantes no cinema; Xavier e Magneto."},
+  {id:"xm2",t:"X2: X-Men United",y:2003,p:0,fr:["xmen"],legacy:"fox",parent:"xm1",links:["xm3"],d:"Ataque à mansão de Xavier; estreia de Noturno."},
+  {id:"xm3",t:"X-Men: The Last Stand",y:2006,p:0,fr:["xmen"],legacy:"fox",parent:"xm2",links:["xmdofp"],d:"A Cura; a morte de Xavier abala a equipe."},
+  {id:"xmow",t:"X-Men Origins: Wolverine",y:2009,p:0,fr:["xmen"],legacy:"fox",parent:null,links:["wolv"],d:"As origens de Logan e o adamantium em suas garras."},
+  {id:"xmfc",t:"X-Men: First Class",y:2011,p:0,fr:["xmen"],legacy:"fox",parent:null,links:["xmdofp","newmut"],d:"Reboot nos anos 60; a amizade entre Xavier e Magneto."},
+  {id:"wolv",t:"The Wolverine",y:2013,p:0,fr:["xmen"],legacy:"fox",parent:"xmow",links:["logan"],d:"Logan no Japão, longe dos X-Men."},
+  {id:"xmdofp",t:"X-Men: Days of Future Past",y:2014,p:0,fr:["xmen"],legacy:"fox",parent:"xmfc",links:["xmapoc","doom"],d:"Viagem no tempo funde as duas linhas temporais dos X-Men."},
+  {id:"xmapoc",t:"X-Men: Apocalypse",y:2016,p:0,fr:["xmen"],legacy:"fox",parent:"xmdofp",links:["xmdp"],d:"O primeiro mutante desperta; os anos 80 dos X-Men."},
+  {id:"logan",t:"Logan",y:2017,p:0,fr:["xmen"],legacy:"fox",parent:"wolv",links:[],d:"O último ato de Wolverine; uma despedida sombria e definitiva."},
+  {id:"xmdp",t:"X-Men: Dark Phoenix",y:2019,p:0,fr:["xmen"],legacy:"fox",parent:"xmapoc",links:[],d:"Jean Grey é consumida pela Força Fênix."},
+  {id:"newmut",t:"The New Mutants",y:2020,p:0,fr:["xmen"],legacy:"fox",parent:"xmfc",links:[],d:"Spin-off de terror com jovens mutantes."},
+  {id:"dp1",t:"Deadpool",y:2016,p:0,fr:["xmen"],legacy:"fox",parent:null,links:["dp2"],d:"Wade Wilson quebra a quarta parede pela primeira vez."},
+  {id:"dp2",t:"Deadpool 2",y:2018,p:0,fr:["xmen"],legacy:"fox",parent:"dp1",links:["dw"],d:"Cable e a X-Force; ainda mais caos com quarta parede."},
+  {id:"ddn",t:"Daredevil (Netflix, S1–3)",y:2015,p:0,fr:["dd","street"],legacy:"netflix",parent:null,links:["ddba","echo"],series:1,d:"A origem Netflix de Matt Murdock e do Rei do Crime."},
+  {id:"raimi1",t:"Spider-Man",y:2002,p:0,fr:["spidey"],legacy:"sony",parent:null,links:["raimi2"],d:"A origem clássica de Peter Parker com Tobey Maguire."},
+  {id:"raimi2",t:"Spider-Man 2",y:2004,p:0,fr:["spidey"],legacy:"sony",parent:"raimi1",links:["raimi3"],d:"Doutor Octopus; o ápice da trilogia Raimi."},
+  {id:"raimi3",t:"Spider-Man 3",y:2007,p:0,fr:["spidey"],legacy:"sony",parent:"raimi2",links:["sm3"],d:"Venom e o simbionte; o fim da trilogia Raimi."},
+  {id:"tasm1",t:"The Amazing Spider-Man",y:2012,p:0,fr:["spidey"],legacy:"sony",parent:null,links:["tasm2"],d:"Reboot com Andrew Garfield; o Lagarto como vilão."},
+  {id:"tasm2",t:"The Amazing Spider-Man 2",y:2014,p:0,fr:["spidey"],legacy:"sony",parent:"tasm1",links:["sm3"],d:"Eletro; a morte de Gwen Stacy."},
+  // Phase 1
+  {id:"cap1",t:"Captain America: The First Avenger",y:2011,p:1,fr:["cap"],parent:null,links:["av1"],shares:[["cm","the Tesseract"]],d:"Origem de Steve Rogers na Segunda Guerra; o Tesseract."},
+  {id:"im1",t:"Iron Man",y:2008,p:1,fr:["iron"],parent:null,links:["im2","av1"],d:"Onde tudo começa. Tony Stark e o gancho para os Vingadores."},
+  {id:"hulk",t:"The Incredible Hulk",y:2008,p:1,fr:["hulk"],parent:"im1",links:["av1"],d:"O único filme solo de Bruce Banner."},
+  {id:"im2",t:"Iron Man 2",y:2010,p:1,fr:["iron"],parent:"im1",links:["av1","im3"],d:"Estreia de Viúva Negra e Máquina de Combate; sementes da S.H.I.E.L.D."},
+  {id:"thor1",t:"Thor",y:2011,p:1,fr:["thor"],parent:null,links:["thor2","av1","loki"],d:"Asgard, Loki e o Tesseract entram em cena."},
+  {id:"av1",t:"The Avengers",y:2012,p:1,fr:["team"],metro:["iron","cap","thor","hulk","widow"],parent:"im1",links:["av2","im3","thor2"],d:"A equipe se forma. Primeiro grande pagamento da saga."},
+  // Phase 2
+  {id:"im3",t:"Iron Man 3",y:2013,p:2,fr:["iron"],parent:"av1",links:[],d:"A ansiedade de Tony após a invasão."},
+  {id:"thor2",t:"Thor: The Dark World",y:2013,p:2,fr:["thor"],parent:"thor1",links:["av2","loki"],shares:[["iw","the Reality Stone"]],d:"A Joia da Realidade é revelada."},
+  {id:"cap2",t:"Captain America: The Winter Soldier",y:2014,p:2,fr:["cap"],parent:"cap1",links:["cw","av2"],d:"A S.H.I.E.L.D. cai; Bucky retorna."},
+  {id:"gg1",t:"Guardians of the Galaxy",y:2014,p:2,fr:["guard","cosmic"],parent:null,links:["gg2","av2"],shares:[["iw","the Power Stone"]],d:"O lado cósmico do UCM; Thanos e a Joia do Poder."},
+  {id:"av2",t:"Avengers: Age of Ultron",y:2015,p:2,fr:["team"],metro:["iron","cap","thor","hulk","widow","wanda"],parent:"av1",links:["cw","iw","ant1","vq"],d:"Visão e Feiticeira Escarlate; a equipe se divide."},
+  {id:"ant1",t:"Ant-Man",y:2015,p:2,fr:["antman"],parent:null,links:["cw","antw"],d:"O Reino Quântico entra em cena."},
+  // Phase 3
+  {id:"cw",t:"Captain America: Civil War",y:2016,p:3,fr:["cap","team"],parent:"cap2",links:["sm1","bp1","iw","fws"],d:"Os Vingadores se dividem; estreia de Aranha e Pantera."},
+  {id:"ds1",t:"Doctor Strange",y:2016,p:3,fr:["drstrange","strange"],parent:null,links:["iw","ds2"],d:"Magia e a Joia do Tempo."},
+  {id:"gg2",t:"Guardians of the Galaxy Vol. 2",y:2017,p:3,fr:["guard","cosmic"],parent:"gg1",links:["iw","gg3"],d:"Família e Ego."},
+  {id:"sm1",t:"Spider-Man: Homecoming",y:2017,p:3,fr:["spidey"],parent:"cw",links:["iw","sm2"],d:"Peter sob a proteção de Stark."},
+  {id:"thor3",t:"Thor: Ragnarok",y:2017,p:3,fr:["thor","cosmic"],parent:"thor2",links:["iw","loki"],d:"Reinventa Thor; Asgard é destruída."},
+  {id:"bp1",t:"Black Panther",y:2018,p:3,fr:["wakanda"],parent:"cw",links:["iw","bp2"],d:"Wakanda é revelada."},
+  {id:"iw",t:"Avengers: Infinity War",y:2018,p:3,fr:["team","cosmic"],metro:["iron","cap","thor","hulk","guard","wakanda","drstrange","spidey","wanda"],parent:"av2",links:["eg","cm"],d:"Thanos vence. O estalar de dedos."},
+  {id:"antw",t:"Ant-Man and the Wasp",y:2018,p:3,fr:["antman"],parent:"ant1",links:["eg"],d:"A cena pós-créditos quântica prepara o assalto de Ultimato."},
+  {id:"cm",t:"Captain Marvel",y:2019,p:3,fr:["cmarvel","cosmic"],parent:null,links:["eg","marvels"],d:"Origem nos anos 90; o reforço de Ultimato."},
+  {id:"eg",t:"Avengers: Endgame",y:2019,p:3,fr:["team"],metro:["iron","cap","thor","hulk","guard","wakanda","drstrange","spidey","wanda","antman","cmarvel","widow"],parent:"iw",links:["sm2","ff2","loki","doom"],d:"Final da Saga do Infinito. As despedidas de Tony e Steve. Relançado em 2026 como Endgame: Encore, com cenas novas ligadas a Doomsday."},
+  {id:"sm2",t:"Spider-Man: Far From Home",y:2019,p:3,fr:["spidey"],parent:"sm1",links:["sm3"],d:"Peter após a morte de Tony; a mentira multiversal de Mysterio."},
+  // Phase 4 films
+  {id:"bw",t:"Black Widow",y:2021,p:4,fr:["widow"],parent:"av2",links:["tb"],d:"O passado de Natasha; apresenta Yelena."},
+  {id:"sc1",t:"Shang-Chi",y:2021,p:4,fr:["strange"],parent:null,links:["doom","shulk"],d:"Os Dez Anéis; confirmado para Doomsday."},
+  {id:"et",t:"Eternals",y:2021,p:4,fr:["cosmic"],parent:null,links:[],shares:[["cbnw","Tiamut → adamantium"]],d:"Seres cósmicos ancestrais; um Celestial emerge."},
+  {id:"sm3",t:"Spider-Man: No Way Home",y:2021,p:4,fr:["spidey","drstrange","multiverse"],parent:"sm2",links:["ds2","sbnd"],d:"O multiverso se abre."},
+  {id:"ds2",t:"Doctor Strange: Multiverse of Madness",y:2022,p:4,fr:["drstrange","wanda","strange","multiverse"],parent:"ds1",links:["doom"],weaves:["xm1"],d:"Incursões e heróis variantes — as regras centrais da saga."},
+  {id:"thor4",t:"Thor: Love and Thunder",y:2022,p:4,fr:["thor","cosmic"],parent:"thor3",links:["doom"],d:"Gorr; Thor e sua filha Love (presente em Doomsday)."},
+  {id:"bp2",t:"Black Panther: Wakanda Forever",y:2022,p:4,fr:["wakanda"],parent:"bp1",links:["doom","riri"],d:"Shuri como Pantera; Namor e M'Baku."},
+  // Phase 5 films
+  {id:"ant3",t:"Ant-Man & the Wasp: Quantumania",y:2023,p:5,fr:["antman","multiverse"],parent:"antw",links:["doom"],d:"Pensado para lançar Kang; Cassie Lang."},
+  {id:"gg3",t:"Guardians of the Galaxy Vol. 3",y:2023,p:5,fr:["guard","cosmic"],parent:"gg2",links:[],d:"A despedida dos Guardiões."},
+  {id:"marvels",t:"The Marvels",y:2023,p:5,fr:["cmarvel","cosmic"],parent:"cm",links:[],weaves:["xm3"],d:"Carol, Monica e Kamala."},
+  {id:"dw",t:"Deadpool & Wolverine",y:2024,p:5,fr:["xmen","multiverse"],parent:"logan",links:["doom"],d:"TVA e participações do universo Fox; a cola do multiverso."},
+  {id:"cbnw",t:"Captain America: Brave New World",y:2025,p:5,fr:["cap"],parent:"cw",links:["doom"],d:"O primeiro filme solo de Sam Wilson como Cap."},
+  {id:"tb",t:"Thunderbolts*",y:2025,p:5,fr:["team","widow"],parent:"bw",links:["doom","ff2"],d:"Forma os Novos Vingadores; nave do Quarteto Fantástico na cena extra."},
+  // Phase 6
+  {id:"ff2",t:"The Fantastic Four: First Steps",y:2025,p:6,fr:["ff","cosmic"],parent:null,links:["doom"],d:"O Quarteto Fantástico; cena pós-créditos prepara o Doom."},
+  {id:"pun",t:"The Punisher: One Last Kill",y:2026,p:6,fr:["dd","street"],parent:"ddba",links:["sbnd"],series:1,d:"Frank Castle tenta deixar a vingança para trás; ponte para Brand New Day."},
+  {id:"sbnd",t:"Spider-Man: Brand New Day",y:2026,p:6,fr:["spidey","street"],parent:"sm3",links:[],theoryLinks:["tasm3"],d:"Esquecido por todos, Peter recomeça sozinho enquanto Ned tenta descobrir quem é o Aranha. Estreia de Jean Grey (Sadie Sink) e dos mutantes no UCM, com Justiceiro e Hulk. Pós-créditos: o rastreador de Ned capta o Aranha no espaço profundo."},
+  {id:"doom",t:"Avengers: Doomsday",y:2026,p:6,fr:["team","multiverse"],metro:["cap","ff","wakanda"],parent:"eg",links:["sw"],theoryLinks:["tasm3"],d:"Doutor Destino transforma o multiverso em arma; quatro equipes colidem."},
+  {id:"sw",t:"Avengers: Secret Wars",y:2027,p:6,fr:["team","multiverse"],metro:["cap","ff","wakanda"],parent:"doom",links:[],d:"O grande final da Saga do Multiverso."},
+  // ---- Phase 7 (unofficial label): post–Secret Wars titles with official dates ----
+  {id:"xmen28",t:"X-Men (2028)",y:2028,p:7,fr:["xmen"],parent:"sbnd",links:[],weaves:["xm1"],d:"A nova geração mutante do UCM, em ruptura com a era Fox: Sadie Sink (Jean Grey, vinda de Brand New Day), Kit Connor (Ciclope), Christopher Abbott (Xavier) e Adam Driver como vilão. Direção de Jake Schreier."},
+  {id:"gr",t:"Ghost Rider",y:2028,p:7,fr:["strange"],parent:null,links:[],d:"Ryan Gosling estreia como Motoqueiro Fantasma no UCM, com os direitos de volta da Sony. Anunciado na Comic-Con 2026."},
+  {id:"bp3",t:"Black Panther III",y:2028,p:7,fr:["wakanda"],parent:"bp2",links:[],d:"David Jonsson vive o filho de T'Challa — o menino revelado na cena pós-créditos de Wakanda Para Sempre — que assume o manto. Anunciado na Comic-Con 2026."},
+  // 🕸 hidden theory — unlocked via the faint dot next to the title. Not canon.
+  {id:"tasm3",t:"The Amazing Spider-Man: Reborn",y:2027,p:6,fr:["spidey","multiverse"],parent:"tasm2",links:[],theory:true,legacy:"sony",
+    d:"TEORIA (não confirmada): no pós-créditos de Brand New Day, o rastreador de Ned capta um segundo sinal de Aranha longe demais no espaço para ser só uma cópia de Peter Parker perdida. E se, durante a incursão de Doomsday, esse sinal pertencer ao Peter de Andrew Garfield — arrancado de sua própria Terra pelo colapso do multiverso? Isso abriria caminho para um novo capítulo solo do Homem-Aranha Fantástico dentro do UCM, reconectando o legado Sony ao Multiverso pouco antes de Guerras Secretas."},
+
+  // ---- SERIES ----
+  {id:"wv",t:"WandaVision",y:2021,p:4,fr:["wanda","strange"],parent:"av2",links:["ds2","agatha"],series:1,d:"Wanda se torna a Feiticeira Escarlate."},
+  {id:"fws",t:"The Falcon and the Winter Soldier",y:2021,p:4,fr:["cap"],parent:"eg",links:["cbnw","tb"],series:1,d:"Sam assume o escudo; Walker vira o Agente Americano."},
+  {id:"loki",t:"Loki (S1–2)",y:2021,p:4,fr:["thor","multiverse"],parent:"eg",links:["ant3","doom"],weaves:["sm3","ds2","dw","sw"],series:1,d:"A TVA e a engrenagem do multiverso."},
+  {id:"hawk",t:"Hawkeye",y:2021,p:4,fr:["widow","street"],parent:"bw",links:["bp2"],series:1,d:"Kate Bishop; o arco de Yelena continua."},
+  {id:"mk",t:"Moon Knight",y:2022,p:4,fr:["strange","street"],parent:null,links:[],series:1,d:"Herói místico/urbano independente."},
+  {id:"msm",t:"Ms. Marvel",y:2022,p:4,fr:["cmarvel","cosmic"],parent:null,links:["marvels"],series:1,d:"Estreia de Kamala Khan."},
+  {id:"gghs",t:"The Guardians of the Galaxy Holiday Special",y:2022,p:4,fr:["guard","cosmic"],parent:"gg2",links:["gg3"],series:1,d:"Especial natalino: Mantis e Drax vão à Terra buscar o presente perfeito para Peter Quill; ponte direta para o Vol. 3."},
+  {id:"shulk",t:"She-Hulk: Attorney at Law",y:2022,p:4,fr:["hulk"],parent:"hulk",links:["ddba"],series:1,d:"Jennifer Walters; cômico e autoconsciente. Também a primeira aparição completa de Matt Murdock como Demolidor no UCM."},
+  {id:"si",t:"Secret Invasion",y:2023,p:5,fr:["cmarvel"],parent:"cm",links:[],series:1,d:"Nick Fury contra Skrulls renegados."},
+  {id:"echo",t:"Echo",y:2024,p:5,fr:["dd","street"],parent:"hawk",links:["ddba"],series:1,d:"Maya Lopez ganha spin-off derivado de Gavião Arqueiro."},
+  {id:"agatha",t:"Agatha All Along",y:2024,p:5,fr:["wanda","strange"],parent:"wv",links:["vq"],series:1,d:"Agatha ganha spin-off derivado de WandaVision; Wiccan."},
+  {id:"riri",t:"Ironheart",y:2025,p:5,fr:["wakanda","strange"],parent:"bp2",links:[],series:1,d:"Riri Williams após Pantera Negra: Wakanda Para Sempre."},
+  {id:"ddba",t:"Daredevil: Born Again (S1–3)",y:2025,p:5,fr:["dd","street"],parent:"ddn",links:[],series:1,d:"Matt Murdock contra o prefeito Fisk. Na T2 (2026) ele revela ser o Demolidor no tribunal e acaba preso; Jessica Jones e Luke Cage voltam. A T3 (2027) encerra a série."},
+  {id:"wman",t:"Wonder Man",y:2026,p:6,fr:["street"],parent:null,links:[],series:1,d:"Sátira ambientada em Hollywood; Simon Williams."},
+  {id:"vq",t:"VisionQuest",y:2026,p:6,fr:["wanda","strange"],parent:"wv",links:[],series:1,d:"Capítulo final da trilogia WandaVision: o Visão Branco, escondido em Edimburgo, divide a mente com Ultron e as IAs J.A.R.V.I.S., F.R.I.D.A.Y. e E.D.I.T.H. Um caçador a mando de um misterioso Cliente o atrai usando Tommy Maximoff."},
+];
+const BY={}; N.forEach(n=>BY[n.id]=n);
+
+// ---------------- LANGUAGE (EN / PT) ----------------
+let LANG="pt";
+let subLines=null;   // null → every franchise tag (set once FRAN exists)
+let subOpen=false, subFocus=null;
+let subTheme=null;   // (unused) theme highlighting was dropped
+const subThemesOn=false;   // themes are plain tags now: no lines, toggle or muting
+let subDensity=2;
+let subOrderMode="release";   // metro order: release · story (in-universe) · steps (story dependencies)   // metro density: 0 overview · 1 compact · 2 normal
+const UI={
+  pt:{hint:"passe o mouse para rastrear · toque ✓ para marcar visto", weave:"✦ Deus das Histórias", shares:"◈ Elementos Compartilhados",
+      weaveTitle:"Mostrar os fios da TVA / multiverso de Loki (Deus das Histórias)", sharesTitle:"Mostrar elementos de trama compartilhados (não são ganchos de história)",
+      progressTitle:"Filmes e séries assistidos", tags:"Tags", theme:"Tema", setsUp:"→ Prepara", buildsOn:"← Parte de", woven:"✦ Fio tecido",
+      shared:"◈ Elemento compartilhado", theory:"🕸 Teoria de fã", series:"Série", theoryTag:"🕸 Teoria", watched:"✓ Visto",
+      locked:"🔒 Marque como visto para revelar — toque no ✓ do card", legacyInfo:"Continuidade legada — apenas informativo, não é filtro",
+      spoilerOn:"Sem spoilers: descrições não assistidas ficam borradas", spoilerOff:"Mostrar tudo: descrições sem borrão",
+      jump:"Ir para", markWatched:"Marcar como visto", isWatched:"Visto", subTitle:"Linhas", themes:"Temas", themeStyle:"Estilo dos temas", styleRings:"anéis (I)", styleMinimap:"minimapa (J)", themesShow:"Mostrar todos os temas", themesHide:"Ocultar os temas", orderBy:"Ordem", ord_release:"Lançamento", ord_story:"História", ord_steps:"Passos", step:"Passo", eraPast:"Passado · 1943–1995", eraInfinity:"Era do Infinito · 2010–2018", eraBlip:"Após o Blip · 2023+", eraAfter:"Após Guerras Secretas", denOverview:"Geral", denCompact:"Compacto", denNormal:"Normal", alwaysOn:"Sempre visíveis", toFocus:"Ver em foco ›", subGraph:"Grafo", subMap:"Mapa", subOpen:"Mapa de metrô", subPick:"Escolha até 8 linhas", subMax:"Máximo de 8 linhas no celular — desligue uma primeiro", subPickAll:"Escolha as linhas", subNone:"Ative ao menos uma linha", onLines:"Nesta linha", lineStart:"início da linha", lineEnd:"fim da linha", related:"Outras ligações", legacy:"Legado", phase:"Fase", sagaLegacy:"Multiverso Legado", sagaInf:"Saga do Infinito",
+      sagaMulti:"Saga do Multiverso", sagaNext:"Próxima saga · não oficial", langTitle:"Idioma: Português — toque para English"},
+  en:{hint:"hover to trace · tap ✓ to mark watched", weave:"✦ God of Stories", shares:"◈ Shared Elements",
+      weaveTitle:"Show Loki's TVA / multiverse threads (God of Stories)", sharesTitle:"Show shared plot elements / resources (not story setups)",
+      progressTitle:"Movies & shows watched", tags:"Tags", theme:"Theme", setsUp:"→ Sets up", buildsOn:"← Builds on", woven:"✦ Woven thread",
+      shared:"◈ Shared element", theory:"🕸 Fan theory", series:"Series", theoryTag:"🕸 Theory", watched:"✓ Watched",
+      locked:"🔒 Watched to reveal — check the ✓ on the node", legacyInfo:"Legacy continuity — informational only, not a filter",
+      spoilerOn:"Spoiler-free: unwatched descriptions stay blurred", spoilerOff:"Show all: descriptions unblurred",
+      jump:"Jump to", markWatched:"Mark as watched", isWatched:"Watched", subTitle:"Lines", themes:"Themes", themeStyle:"Theme style", styleRings:"rings (I)", styleMinimap:"minimap (J)", themesShow:"Show all themes", themesHide:"Hide themes", orderBy:"Order", ord_release:"Release", ord_story:"Story", ord_steps:"Steps", step:"Step", eraPast:"Past · 1943–1995", eraInfinity:"Infinity era · 2010–2018", eraBlip:"After the Blip · 2023+", eraAfter:"After Secret Wars", denOverview:"Overview", denCompact:"Compact", denNormal:"Normal", alwaysOn:"Always on", toFocus:"Open focus view ›", subGraph:"Graph", subMap:"Map", subOpen:"Subway map", subPick:"Pick up to 8 lines", subMax:"Max 8 lines on a phone — turn one off first", subPickAll:"Pick lines", subNone:"Turn on at least one line", onLines:"On this line", lineStart:"start of line", lineEnd:"end of line", related:"Other connections", legacy:"Legacy", phase:"Phase", sagaLegacy:"Legacy Multiverse", sagaInf:"Infinity Saga",
+      sagaMulti:"Multiverse Saga", sagaNext:"Next saga · unofficial", langTitle:"Language: English — tap for Português"}
+};
+function T(k){ return (UI[LANG]&&UI[LANG][k]) || UI.en[k] || k; }
+// English descriptions (Portuguese lives in each node's `d`)
+const EN={
+  xm1:"Mutants hit the big screen; Xavier and Magneto.",
+  xm2:"The attack on Xavier's mansion; Nightcrawler debuts.",
+  xm3:"The Cure; Xavier's death shakes the team.",
+  xmow:"Logan's origins and the adamantium in his claws.",
+  xmfc:"A 1960s reboot; the friendship between Xavier and Magneto.",
+  wolv:"Logan in Japan, far from the X-Men.",
+  xmdofp:"Time travel merges the two X-Men timelines.",
+  xmapoc:"The first mutant awakens; the X-Men's 1980s.",
+  logan:"Wolverine's last act; a dark, definitive farewell.",
+  xmdp:"Jean Grey is consumed by the Phoenix Force.",
+  newmut:"A horror spin-off with young mutants.",
+  dp1:"Wade Wilson breaks the fourth wall for the first time.",
+  dp2:"Cable and X-Force; even more fourth-wall chaos.",
+  ddn:"The Netflix origin of Matt Murdock and the Kingpin.",
+  raimi1:"Peter Parker's classic origin with Tobey Maguire.",
+  raimi2:"Doctor Octopus; the peak of the Raimi trilogy.",
+  raimi3:"Venom and the symbiote; the end of the Raimi trilogy.",
+  tasm1:"A reboot with Andrew Garfield; the Lizard as villain.",
+  tasm2:"Electro; the death of Gwen Stacy.",
+  cap1:"Steve Rogers' WWII origin; the Tesseract.",
+  im1:"Where it all begins. Tony Stark and the hook for the Avengers.",
+  hulk:"Bruce Banner's only solo film.",
+  im2:"Black Widow and War Machine debut; seeds of S.H.I.E.L.D.",
+  thor1:"Asgard, Loki and the Tesseract enter the picture.",
+  av1:"The team assembles. The saga's first big payoff.",
+  im3:"Tony's anxiety after the invasion.",
+  thor2:"The Reality Stone is revealed.",
+  cap2:"S.H.I.E.L.D. falls; Bucky returns.",
+  gg1:"The MCU's cosmic side; Thanos and the Power Stone.",
+  av2:"Vision and Scarlet Witch; the team fractures.",
+  ant1:"The Quantum Realm enters the picture.",
+  cw:"The Avengers split; Spider-Man and Black Panther debut.",
+  ds1:"Magic and the Time Stone.",
+  gg2:"Family and Ego.",
+  sm1:"Peter under Stark's wing.",
+  thor3:"Reinvents Thor; Asgard is destroyed.",
+  bp1:"Wakanda is revealed.",
+  iw:"Thanos wins. The snap.",
+  antw:"The quantum post-credits scene sets up Endgame's heist.",
+  cm:"A 1990s origin; Endgame's reinforcement.",
+  eg:"The Infinity Saga finale. Tony's and Steve's farewells. Re-released in 2026 as Endgame: Encore, with new scenes tied to Doomsday.",
+  sm2:"Peter after Tony's death; Mysterio's multiversal lie.",
+  bw:"Natasha's past; introduces Yelena.",
+  sc1:"The Ten Rings; confirmed for Doomsday.",
+  et:"Ancient cosmic beings; a Celestial emerges.",
+  sm3:"The multiverse cracks open.",
+  ds2:"Incursions and variant heroes — the saga's core rules.",
+  thor4:"Gorr; Thor and his daughter Love (in Doomsday).",
+  bp2:"Shuri as Black Panther; Namor and M'Baku.",
+  ant3:"Meant to launch Kang; Cassie Lang.",
+  gg3:"The Guardians' farewell.",
+  marvels:"Carol, Monica and Kamala.",
+  dw:"The TVA and Fox-universe cameos; the multiverse glue.",
+  cbnw:"Sam Wilson's first solo film as Cap.",
+  tb:"Forms the New Avengers; the Fantastic Four's ship in the extra scene.",
+  ff2:"The Fantastic Four; the post-credits scene sets up Doom.",
+  pun:"Frank Castle tries to leave vengeance behind; a bridge to Brand New Day.",
+  sbnd:"Forgotten by everyone, Peter starts over alone while Ned tries to work out who Spider-Man is. Jean Grey (Sadie Sink) and mutants debut in the MCU, with the Punisher and Hulk. Post-credits: Ned's tracker picks up Spider-Man in deep space.",
+  doom:"Doctor Doom weaponizes the multiverse; four teams collide.",
+  sw:"The grand finale of the Multiverse Saga.",
+  tasm3:"THEORY (unconfirmed): in Brand New Day's post-credits scene, Ned's tracker picks up a Spider signal too far out in space to be just a stray copy of Peter Parker. What if, during Doomsday's incursion, that signal belongs to Andrew Garfield's Peter — torn from his own Earth by the multiverse's collapse? That would open the door to a new Amazing Spider-Man solo chapter inside the MCU, reconnecting the Sony legacy to the Multiverse right before Secret Wars.",
+  wv:"Wanda becomes the Scarlet Witch.",
+  fws:"Sam takes up the shield; Walker becomes U.S. Agent.",
+  loki:"The TVA and the machinery of the multiverse.",
+  hawk:"Kate Bishop; Yelena's arc continues.",
+  mk:"A standalone mystic/street-level hero.",
+  msm:"Kamala Khan's debut.",
+  gghs:"Holiday special: Mantis and Drax head to Earth for the perfect gift for Peter Quill; a direct bridge to Vol. 3.",
+  shulk:"Jennifer Walters; comedic and self-aware. Also Matt Murdock's first full appearance as Daredevil in the MCU.",
+  si:"Nick Fury against rogue Skrulls.",
+  echo:"Maya Lopez gets a spin-off from Hawkeye.",
+  agatha:"Agatha gets a spin-off from WandaVision; Wiccan.",
+  riri:"Riri Williams after Black Panther: Wakanda Forever.",
+  ddba:"Matt Murdock versus Mayor Fisk. In S2 (2026) he reveals he's Daredevil in court and ends up in prison; Jessica Jones and Luke Cage return. S3 (2027) concludes the series.",
+  wman:"A satire set in Hollywood; Simon Williams.",
+  vq:"The final chapter of the WandaVision trilogy: White Vision, hiding in Edinburgh, shares his mind with Ultron and the AIs J.A.R.V.I.S., F.R.I.D.A.Y. and E.D.I.T.H. A bounty hunter working for a mysterious Client lures him in using Tommy Maximoff.",
+  xmen28:"The MCU's new mutant generation, a clean break from the Fox era: Sadie Sink (Jean Grey, from Brand New Day), Kit Connor (Cyclops), Christopher Abbott (Xavier) and Adam Driver as the villain. Directed by Jake Schreier.",
+  gr:"Ryan Gosling debuts as Ghost Rider in the MCU, with the rights back from Sony. Announced at Comic-Con 2026.",
+  bp3:"David Jonsson plays T'Challa's son — the boy revealed in Wakanda Forever's post-credits scene — who takes up the mantle. Announced at Comic-Con 2026."
+};
+const DESC=n=>LANG==="en"?(EN[n.id]||n.d):n.d;
+// In memoriam: final on-screen appearances of cast members who have passed away (shown in the popup and focus card)
+const MEMO={
+  raimi3:{pt:["Última atuação de Cliff Robertson (Tio Ben, 1923–2011) no cinema.","Última aparição de Bill Nunn (Robbie Robertson, 1953–2016) como Robbie Robertson."],
+          en:["Cliff Robertson's (Uncle Ben, 1923–2011) final film role.","Bill Nunn's (Robbie Robertson, 1953–2016) final appearance as Robbie Robertson."]},
+  im3:{pt:["Última aparição de Miguel Ferrer (Vice-presidente Rodriguez, 1955–2017) no UCM."],
+       en:["Miguel Ferrer's (Vice President Rodriguez, 1955–2017) final MCU appearance."]},
+  cap2:{pt:["Última aparição de Garry Shandling (Senador Stern, 1949–2016) no UCM."],
+        en:["Garry Shandling's (Senator Stern, 1949–2016) final MCU appearance."]},
+  thor3:{pt:["Última aparição de Ray Stevenson (Volstagg, 1964–2023) no UCM."],
+         en:["Ray Stevenson's (Volstagg, 1964–2023) final MCU appearance."]},
+  eg:{pt:["Última aparição em live-action de Chadwick Boseman (T'Challa, 1976–2020).","Última participação especial de Stan Lee (1922–2018), lançada após sua morte."],
+      en:["Chadwick Boseman's (T'Challa, 1976–2020) final live-action appearance.","Stan Lee's (1922–2018) final cameo, released after his death."]},
+  bw:{pt:["Última aparição de William Hurt (Thaddeus Ross, 1950–2022) no UCM."],
+      en:["William Hurt's (Thaddeus Ross, 1950–2022) final MCU appearance."]},
+  mk:{pt:["Última atuação de Gaspard Ulliel (Homem da Meia-Noite, 1984–2022), lançada após sua morte."],
+      en:["Gaspard Ulliel's (Midnight Man, 1984–2022) final role, released after his death."]},
+  doom:{pt:["Última aparição de Patrick Stewart (Professor X, 1940–2026) como Charles Xavier, lançada após sua morte."],
+        en:["Patrick Stewart's (Professor X, 1940–2026) final appearance as Charles Xavier, released after his death."]}
+};
+const MEMO_HTML=(n,cls)=>{ const m=MEMO[n.id]; if(!m) return "";
+  return `<div class="${cls}"><span class="memoLab">${LANG==="en"?"In memoriam":"In memoriam"}</span>${(m[LANG]||m.en).map(x=>`<div>${esc(x)}</div>`).join("")}</div>`; };
+function applyLangChrome(){
+  document.documentElement.lang=LANG==="en"?"en":"pt-BR";
+  const q=id=>document.getElementById(id);
+  const h=document.querySelector(".hint"); if(h) h.textContent=T("hint");
+  if(q("weaveBtn")){ q("weaveBtn").textContent=T("weave"); q("weaveBtn").title=T("weaveTitle"); }
+  if(q("sharesBtn")){ q("sharesBtn").textContent=T("shares"); q("sharesBtn").title=T("sharesTitle"); }
+  if(q("progress")) q("progress").title=T("progressTitle");
+  const ft=q("filtersToggle"); if(ft&&ft.firstChild) ft.firstChild.nodeValue=T("tags")+" ";
+  const tl=document.querySelector('label[for="themeSel"]'); if(tl) tl.textContent=T("theme");
+  if(q("langBtn")){ q("langBtn").textContent=LANG.toUpperCase(); q("langBtn").title=T("langTitle"); }
+  if(typeof spoilerBtn!=="undefined"&&spoilerBtn) spoilerBtn.title=spoilerBtnTitle();
+}
+const SAGA=p=>p===0?T("sagaLegacy"):p<=3?T("sagaInf"):p<=6?T("sagaMulti"):T("sagaNext");
+const PHASE_LABEL=p=>p===0?T("legacy"):T("phase")+" "+p;
+
+// ---------------- TREE LAYOUT ----------------
+// depth = phase (so time flows one direction); within depth, pack by subtree to reduce crossings.
+// We compute an ordering per phase using parent grouping.
+// Cards are landscape-style (title reads normally) in both orientations.
+const DIM={
+  h:{w:190,h:52, gapMain:150, gapCross:20}   // shared card size for horizontal AND vertical (chapters) layouts
+};
+// default layout follows the screen shape: wide/landscape -> horizontal, tall/portrait -> vertical
+let ORIENT = (innerWidth >= innerHeight) ? "h" : "v";
+
+// ORIENT "h" = node graph (horizontal), "v" = metro-lines view (replaced the old vertical "chapters" graph).
+function isChapters(){ return false; }
+
+let showWeaves=false;
+let showShares=false;
+let showTheory=false;           // hidden easter-egg: reveals unconfirmed fan-theory nodes
+function visN(){ return N.filter(n=>!n.theory || showTheory); }
+// theme-driven accent colors (reassigned by applyTheme)
+let SHARE_COLOR="#f0b446";
+let WEAVE_COLOR="#b388ff";
+let WATCHED_COLOR="#2ecc71";
+let WATCHED_INK="#04120c";
+let NODE_FILL="#0e1728";
+let NODE_FILL_SERIES="#0a1120";
+let EDGE_STROKE="#25324f";
+let CK_STROKE="#4a5570";
+let spoilerFree=true;            // when true, unwatched descriptions stay blurred
+let showJumpRail=true;           // whether the phase jump rail (vertical mode only) is expanded
+const watched=new Set();         // ids the user has marked watched
+
+// ---- persistence via artifact storage (falls back to memory if unavailable) ----
+async function loadWatched(){
+  try{
+    const r=await window.storage.get("mcu:watched");
+    if(r&&r.value){
+      const stored=JSON.parse(r.value);
+      let dropped=false;
+      stored.forEach(id=>{
+        if(BY[id]) watched.add(id);   // only keep ids that match a current node
+        else dropped=true;
+      });
+      if(dropped) saveWatched();       // prune stale ids from storage
+    }
+  }catch(e){ /* no stored value yet, or storage unavailable */ }
+}
+async function saveWatched(){
+  try{ await window.storage.set("mcu:watched", JSON.stringify([...watched])); }
+  catch(e){ /* storage unavailable; state stays in-memory for the session */ }
+}
+
+// ---- persist the God of Stories / Shared Elements / Spoiler-free / Jump-rail toggle states ----
+async function loadToggles(){
+  try{
+    const r=await window.storage.get("mcu:toggles");
+    if(r&&r.value){
+      const t=JSON.parse(r.value);
+      if(typeof t.showWeaves==="boolean") showWeaves=t.showWeaves;
+      if(typeof t.showShares==="boolean") showShares=t.showShares;
+      if(typeof t.spoilerFree==="boolean") spoilerFree=t.spoilerFree;
+      if(typeof t.showJumpRail==="boolean") showJumpRail=t.showJumpRail;
+      if(typeof t.showTheory==="boolean") showTheory=t.showTheory;
+      if(t.lang==="en"||t.lang==="pt") LANG=t.lang;
+      if(t.subDensity===0||t.subDensity===1||t.subDensity===2) subDensity=t.subDensity;
+      if(["release","story","steps"].includes(t.subOrder)) subOrderMode=t.subOrder;
+      if(t.view==="subway") ORIENT="v"; else if(t.view==="graph") ORIENT="h";
+      if(Array.isArray(t.subLines) && t.subV===3) subLines=t.subLines.filter(isSeries);   // older saves used the old tag set   // older saves (4-line default) are ignored
+    }
+  }catch(e){ /* no stored value yet, or storage unavailable */ }
+}
+async function saveToggles(){
+  try{ await window.storage.set("mcu:toggles", JSON.stringify({showWeaves,showShares,spoilerFree,showJumpRail,showTheory,lang:LANG,view:subOpen?"subway":"graph",subLines,subV:3,subDensity,subOrder:subOrderMode})); }
+  catch(e){ /* storage unavailable; state stays in-memory for the session */ }
+}
+function D(){ return DIM.h; }
+
+// Horizontal layout: phases become columns, films/series within a phase stack vertically as a column.
+function layout(){
+
+  // group by phase
+  const phases={}; visN().forEach(n=>{(phases[n.p]=phases[n.p]||[]).push(n)});
+  for(let p=0;p<=MAX_PHASE;p++) phases[p]=phases[p]||[];  // guarantee every phase bucket exists, even if empty
+  // order within each phase: cluster children under parents, then by year
+  const order={};
+  for(let p=0;p<=MAX_PHASE;p++){
+    let arr=phases[p].slice();
+    arr.sort((a,b)=>{
+      if(p===0){
+        const la=LEGACY_ORDER[a.legacy]??99, lb=LEGACY_ORDER[b.legacy]??99;
+        if(la!==lb) return la-lb;
+      }
+      const pa=a.parent?BY[a.parent]:null, pb=b.parent?BY[b.parent]:null;
+      const oa=pa?(order[pa.id]??999):-1, ob=pb?(order[pb.id]??999):-1;
+      return oa-ob || a.y-b.y || (a.series?1:0)-(b.series?1:0) || a.id.localeCompare(b.id);
+    });
+    arr.forEach((n,i)=>order[n.id]=i);
+    phases[p]=arr;
+  }
+  // assign coordinates: phase = column (x), position within phase = row (y)
+  const d=D();
+  const cross=d.h+d.gapCross;   // vertical spacing between films within one phase's column
+  const main=d.w+d.gapMain;     // horizontal spacing between phase columns
+  const pos={}, legacySubInfo={};   // legacySubInfo: per sub-universe vertical bounds, for Phase 0's column labels
+  for(let p=0;p<=MAX_PHASE;p++){
+    const arr=phases[p];
+    if(p===0 && arr.length){
+      // Legacy column: cluster by sub-universe with extra gap between clusters
+      const subGapExtra=30;
+      const yPos=[]; let cy=0, lastLegacy=null;
+      arr.forEach((n,i)=>{
+        if(i>0 && n.legacy!==lastLegacy) cy+=subGapExtra;
+        yPos.push(cy); cy+=cross; lastLegacy=n.legacy;
+      });
+      const offset=(cy-cross)/2;
+      arr.forEach((n,i)=>{ pos[n.id]={x:p*main, y:yPos[i]-offset}; });
+      LEGACY_GROUPS.forEach(g=>{
+        const idxs=arr.map((n,i)=>n.legacy===g.key?i:-1).filter(i=>i>=0);
+        if(!idxs.length) return;
+        legacySubInfo[g.key]={
+          top:yPos[idxs[0]]-offset-d.h/2,
+          bottom:yPos[idxs[idxs.length-1]]-offset+d.h/2,
+          color:g.color, label:g.label
+        };
+      });
+    } else {
+      const span=(arr.length-1)*cross;
+      arr.forEach((n,i)=>{ pos[n.id]={x:p*main, y:i*cross-span/2}; });
+    }
+  }
+  return {pos,phases,legacySubInfo};
+}
+
+const NS="http://www.w3.org/2000/svg";
+const tree=document.getElementById("tree");
+let svg,pos,phases,activeFrans=new Set();
+let lastBandInfo=null, lastOx=0, lastOy=0;  // exposed for the jump rail's scroll-to-phase math
+
+function ec(n,a){const e=document.createElementNS(NS,n);for(const k in a)e.setAttribute(k,a[k]);return e;}
+
+function edgePath(a,b){
+  const d=D();
+  const ax=a.x+d.w/2, ay=a.y, bx=b.x-d.w/2, by=b.y;
+  const mx=(ax+bx)/2;
+  return `M ${ax} ${ay} C ${mx} ${ay}, ${mx} ${by}, ${bx} ${by}`;
+}
+
+function build(){
+  tree.innerHTML="";
+  const L=layout(); pos=L.pos; phases=L.phases; const bandInfo=L.bandInfo; const legacySubInfo=L.legacySubInfo;
+  // bounds
+  const d=D();
+  const xs=Object.values(pos).map(p=>p.x), ys=Object.values(pos).map(p=>p.y);
+  const minX=Math.min(...xs)-d.w, maxX=Math.max(...xs)+d.w;
+  const minY=Math.min(...ys)-d.h, maxY=Math.max(...ys)+d.h;
+  const W=maxX-minX+80, H=maxY-minY+120;
+  const ox=-minX+40, oy=-minY+80;
+  lastOx=ox; lastOy=oy; lastBandInfo=bandInfo||null;
+  svg=ec("svg",{width:W,height:H,viewBox:`0 0 ${W} ${H}`});
+  tree.appendChild(svg);
+  const root=ec("g",{transform:`translate(${ox},${oy})`}); svg.appendChild(root);
+
+  // phase separators + labels
+  for(let p=0;p<=MAX_PHASE;p++){
+    const arr=phases[p]; if(!arr.length)continue;
+    const c=PHASE_COLOR[p];
+    if(isChapters()){
+      const bi=bandInfo[p];
+      // chapter "spine" marker running the height of this phase's band
+      root.appendChild(ec("rect",{x:-16,y:bi.top,width:3,height:bi.bottom-bi.top,rx:1.5,fill:c,opacity:.75}));
+      const lab=ec("text",{x:0,y:bi.headerY,fill:c,"text-anchor":"start",
+        "font-family":"Oswald","font-weight":700,"font-size":17,"text-transform":"uppercase"});
+      lab.textContent=PHASE_LABEL(p); root.appendChild(lab);
+      const sg=ec("text",{x:0,y:bi.headerY+15,fill:"#55638a","text-anchor":"start",
+        "font-family":"Barlow Condensed","font-size":10,"letter-spacing":"2px"});
+      sg.textContent=SAGA(p).toUpperCase(); root.appendChild(sg);
+      // Legacy phase: render a mini sub-header for each nested sub-universe (Fox / Netflix / Sony)
+      if(bi.subs) bi.subs.forEach(s=>{
+        root.appendChild(ec("rect",{x:-10,y:s.top,width:2,height:s.bottom-s.top,rx:1,fill:s.color,opacity:.6}));
+        const slab=ec("text",{x:0,y:s.headerY,fill:s.color,"text-anchor":"start",
+          "font-family":"Barlow Condensed","font-weight":600,"font-size":11.5,"letter-spacing":"1px","text-transform":"uppercase"});
+        slab.textContent=s.label; root.appendChild(slab);
+      });
+      continue;
+    }
+    // horizontal mode: column header above each phase's stack of cards
+    const ds=arr.map(n=>pos[n.id].x), spr=arr.map(n=>pos[n.id].y);
+    const dmin=Math.min(...ds), smin=Math.min(...spr);
+    const lab=ec("text",{x:dmin,y:smin-d.h/2-18,fill:c,"text-anchor":"middle",
+      "font-family":"Oswald","font-weight":700,"font-size":15});
+    lab.textContent=PHASE_LABEL(p); root.appendChild(lab);
+    const sg=ec("text",{x:dmin,y:smin-d.h/2-4,fill:"#55638a","text-anchor":"middle",
+      "font-family":"Barlow Condensed","font-size":10,"letter-spacing":"2px"});
+    sg.textContent=SAGA(p).toUpperCase(); root.appendChild(sg);
+    // Legacy column: small rotated sub-universe labels beside each cluster (Fox / Netflix / Sony)
+    if(p===0 && legacySubInfo) Object.values(legacySubInfo).forEach(s=>{
+      const cy=(s.top+s.bottom)/2;
+      const slab=ec("text",{x:dmin+d.w/2+16,y:cy,fill:s.color,"text-anchor":"middle",
+        "font-family":"Barlow Condensed","font-weight":600,"font-size":10.5,"letter-spacing":"1px",
+        "text-transform":"uppercase",transform:`rotate(90 ${dmin+d.w/2+16} ${cy})`});
+      slab.textContent=s.label; root.appendChild(slab);
+      root.appendChild(ec("rect",{x:dmin-d.w/2-8,y:s.top,width:2,height:s.bottom-s.top,rx:1,fill:s.color,opacity:.6}));
+    });
+  }
+
+  // links: parent edges (structural) + link edges (sets-up)
+  const linkLayer=ec("g",{class:"linkLayer"}); root.appendChild(linkLayer);
+  const edges=[];
+  const vis=visN(); const visSet=new Set(vis.map(n=>n.id));
+  vis.forEach(n=>{
+    if(n.parent&&BY[n.parent]&&visSet.has(n.parent)) edges.push([n.parent,n.id,"struct"]);
+    n.links.forEach(t=>{ if(BY[t]&&visSet.has(t)) edges.push([n.id,t,"link"]); });
+    // God-of-Stories thematic weaves (Loki's TVA/multiverse threads)
+    if(showWeaves && n.weaves) n.weaves.forEach(t=>{ if(BY[t]&&visSet.has(t)) edges.push([n.id,t,"weave"]); });
+    // Shared-element links (a plot resource/object reused, not a story setup)
+    if(showShares && n.shares) n.shares.forEach(([t])=>{ if(BY[t]&&visSet.has(t)) edges.push([n.id,t,"shares"]); });
+    // 🕸 hidden fan-theory connections — only exist once the theory dot is unlocked
+    if(showTheory && n.theoryLinks) n.theoryLinks.forEach(t=>{ if(BY[t]&&visSet.has(t)) edges.push([n.id,t,"theory"]); });
+  });
+  edges.forEach(([a,b,kind])=>{
+    let cls="link"+(kind==="weave"?" weave":"")+(kind==="shares"?" shares":"")+(kind==="theory"?" theory":"");
+    const col = kind==="weave" ? WEAVE_COLOR
+              : kind==="shares" ? SHARE_COLOR
+              : kind==="theory" ? "#e0533d"
+              : "var(--edge)";
+    const pe=ec("path",{class:cls,d:edgePath(pos[a],pos[b])});
+    pe.style.stroke=col;              // inline style beats the .link stylesheet rule
+    pe.dataset.a=a; pe.dataset.b=b;
+    linkLayer.appendChild(pe);
+  });
+
+  // nodes
+  const nodeLayer=ec("g",{class:"nodeLayer"}); root.appendChild(nodeLayer);
+  vis.forEach(n=>{
+    const P=pos[n.id];
+    const c=(n.p===0 && n.legacy && LEGACY_COLOR[n.legacy]) ? LEGACY_COLOR[n.legacy] : PHASE_COLOR[n.p];
+    const g=ec("g",{class:"node"+(n.series?" series":"")+(n.theory?" theory":"")+(n.fr.some(isTheme)?" thm":""),
+      transform:`translate(${P.x-d.w/2},${P.y-d.h/2})`});
+    g.style.color=c;
+    const card=ec("rect",{class:"card",x:0,y:0,width:d.w,height:d.h,rx:9,stroke:c});
+    g.appendChild(card);
+
+    // landscape card (title reads left-to-right) — used in both horizontal and vertical (chapters) layouts
+    g.appendChild(ec("rect",{x:3,y:8,width:3,height:d.h-16,rx:1.5,fill:c})); // left accent
+    const yr=ec("text",{class:"yr",x:14,y:16,"font-size":9.5});
+    yr.textContent=n.y+(n.series?" · SERIES":""); g.appendChild(yr);
+    const ti=ec("text",{class:"ttl",x:14,y:31,"font-size":11});
+    ti.textContent=n.t.length>26?n.t.slice(0,25)+"…":n.t; g.appendChild(ti);
+    let tx=14; const maxX=d.w-28;   // keep clear of the watched check
+    [...n.fr.filter(isSeries),...n.fr.filter(isTheme)].forEach(fk=>{
+      const f=FRAN[fk]; if(!f)return;
+      const w=f.l.length*5.4+12;
+      if(tx+w>maxX){   // no room: show as a small dot
+        g.appendChild(ec("circle",{cx:tx+4,cy:43.5,r:3.2,fill:isTheme(fk)?"none":f.c,stroke:f.c,"stroke-width":1.4})); tx+=10; return; }
+      if(isTheme(fk)){
+        g.appendChild(ec("rect",{x:tx+.5,y:38.5,width:w-1,height:10,rx:3,fill:"none",stroke:f.c,"stroke-width":1}));
+        const tt=ec("text",{class:"tagtxt",x:tx+6,y:46.5,"font-size":8,fill:f.c}); tt.style.fill=f.c;
+        tt.textContent=f.l; g.appendChild(tt);
+      }else{
+        g.appendChild(ec("rect",{x:tx,y:38,width:w,height:11,rx:3,fill:f.c,opacity:.92}));
+        const tt=ec("text",{class:"tagtxt",x:tx+6,y:46.5,"font-size":8});
+        tt.textContent=f.l; g.appendChild(tt);
+      }
+      tx+=w+4;
+    });
+    g.dataset.id=n.id;
+
+    // ---- WATCHED check-toggle (top-right in landscape, top-right in portrait) ----
+    const isW=watched.has(n.id);
+    const ckR=8;
+    const ckX = d.w-15;
+    const ckY = d.h/2;
+    const check=ec("g",{class:"check"+(isW?" on":""),style:"cursor:pointer"});
+    check.appendChild(ec("circle",{cx:ckX,cy:ckY,r:ckR,
+      fill:isW?WATCHED_COLOR:"transparent",stroke:isW?WATCHED_COLOR:CK_STROKE,"stroke-width":1.5}));
+    // checkmark path (shown when watched)
+    const tick=ec("path",{d:`M ${ckX-3.6} ${ckY} l 2.4 2.6 l 4.6 -5`,
+      fill:"none",stroke:WATCHED_INK,"stroke-width":1.8,"stroke-linecap":"round",
+      "stroke-linejoin":"round",opacity:isW?1:0});
+    check.appendChild(tick);
+    check.addEventListener("click",e=>{ e.stopPropagation(); toggleWatched(n.id); });
+    g.appendChild(check);
+    if(isW) g.classList.add("watched");
+
+    nodeLayer.appendChild(g);
+    g.addEventListener("mouseenter",()=>focus(n));
+    g.addEventListener("mouseleave",clear);
+    g.addEventListener("mousemove",e=>moveInfo(e));
+  });
+
+  applyFilter();
+  refreshJumpRail();
+  return {W,H};
+}
+
+// ---------------- FOCUS ----------------
+const info=document.getElementById("info");
+
+let lastFocus=null;
+let pinnedNode=null;   // set on mobile when a node is tapped-open (persists until dismissed); always null on desktop
+function toggleWatched(id){
+  if(watched.has(id)) watched.delete(id); else watched.add(id);
+  saveWatched();
+  // update just this node's check + watched class without a full rebuild
+  const g=svg.querySelector(`.node[data-id="${id}"]`);
+  if(g){
+    const on=watched.has(id);
+    g.classList.toggle("watched",on);
+    const ch=g.querySelector(".check");
+    ch.classList.toggle("on",on);
+    const circle=ch.querySelector("circle");
+    circle.setAttribute("fill",on?WATCHED_COLOR:"transparent");
+    circle.setAttribute("stroke",on?WATCHED_COLOR:CK_STROKE);
+    ch.querySelector("path").setAttribute("opacity",on?1:0);
+  }
+  updateProgress();
+  if(subOpen){ renderSubway(); if(subFocus) renderFocus(subFocus,{keepScroll:true}); }
+  // if the info card is currently showing this node, refresh its blur state
+  if(lastFocus && lastFocus.id===id && info.classList.contains("on")) focus(lastFocus);
+}
+function neigh(n){
+  const s=new Set([n.id]);
+  if(n.parent)s.add(n.parent);
+  n.links.forEach(t=>s.add(t));
+  if(showWeaves && n.weaves) n.weaves.forEach(t=>s.add(t));
+  if(showShares && n.shares) n.shares.forEach(([t])=>s.add(t));
+  if(showTheory && n.theoryLinks) n.theoryLinks.forEach(t=>s.add(t));
+  visN().forEach(x=>{
+    if(x.parent===n.id)s.add(x.id);
+    if(x.links.includes(n.id))s.add(x.id);
+    if(showWeaves && x.weaves && x.weaves.includes(n.id))s.add(x.id);
+    if(showShares && x.shares && x.shares.some(([t])=>t===n.id))s.add(x.id);
+    if(showTheory && x.theoryLinks && x.theoryLinks.includes(n.id))s.add(x.id);
+  });
+  return s;
+}
+function focus(n){
+  lastFocus=n;
+  const set=neigh(n);
+  svg.classList.add("dim");
+  svg.querySelectorAll(".node").forEach(g=>g.classList.toggle("keep",set.has(g.dataset.id)));
+  svg.querySelectorAll(".node").forEach(g=>g.classList.toggle("hot",g.dataset.id===n.id));
+  svg.querySelectorAll(".link").forEach(l=>l.classList.toggle("hot",l.dataset.a===n.id||l.dataset.b===n.id));
+  // "Sets up" = explicit links AND any node that structurally grows from n (n is its parent)
+  const feedIds=new Set(n.links);
+  visN().forEach(x=>{ if(x.parent===n.id) feedIds.add(x.id); });
+  const feeds=[...feedIds].map(t=>BY[t]?.t).filter(Boolean);
+  // "Builds on" = nodes that link to n AND n's own structural parent
+  const parentIds=new Set(visN().filter(x=>x.links.includes(n.id)).map(x=>x.id));
+  if(n.parent && (!BY[n.parent].theory || showTheory)) parentIds.add(n.parent);
+  const parents=[...parentIds].map(t=>BY[t]?.t).filter(Boolean);
+  const weaves = showWeaves ? [
+    ...(n.weaves||[]).map(t=>BY[t]?.t),
+    ...visN().filter(x=>x.weaves&&x.weaves.includes(n.id)).map(x=>x.t)
+  ].filter(Boolean) : [];
+  const shares = showShares ? [
+    ...(n.shares||[]).map(([t,lbl])=> BY[t]?`${BY[t].t} (${lbl})`:null),
+    ...visN().filter(x=>x.shares&&x.shares.some(([t])=>t===n.id))
+        .map(x=>{ const s=x.shares.find(([t])=>t===n.id); return `${x.t} (${s[1]})`; })
+  ].filter(Boolean) : [];
+  // 🕸 hidden fan-theory connections (only populated once the theory dot is unlocked)
+  const theories = showTheory ? [
+    ...(n.theoryLinks||[]).map(t=>BY[t]?.t),
+    ...visN().filter(x=>x.theoryLinks&&x.theoryLinks.includes(n.id)).map(x=>x.t)
+  ].filter(Boolean) : [];
+  const LEGACY_LABEL={fox:"Fox",netflix:"Netflix",sony:"Sony"};
+  const tagChips=n.fr.filter(fk=>FRAN[fk]).map(fk=>{ const f=FRAN[fk];
+      return isTheme(fk)
+        ?`<span class="tg thTag" style="--c:${f.c}">${f.l}</span>`
+        :`<span class="tg" style="background:${f.c}">${f.l}</span>`; }).join("")
+    +`<span class="tg" style="background:${PHASE_COLOR[n.p]}">${PHASE_LABEL(n.p)}</span>`
+    +(n.series?`<span class="tg" style="background:${CK_STROKE};color:#fff">${T("series")}</span>`:"")
+    +(n.theory?`<span class="tg" style="background:#e0533d;color:#fff">${T("theoryTag")}</span>`:"")
+    +(n.legacy?`<span class="tg" style="background:transparent;border:1px solid ${LEGACY_COLOR[n.legacy]};color:${LEGACY_COLOR[n.legacy]}" title="${T("legacyInfo")}">${LEGACY_LABEL[n.legacy]||n.legacy}</span>`:"");
+  const isW=watched.has(n.id);
+  const locked = spoilerFree && !isW && !n.theory;
+  const desc = locked
+    ? `<div class="d locked"><span class="blurtext">${DESC(n)}</span>
+         <span class="lockrow">${T("locked")}</span></div>`
+    : `<div class="d">${DESC(n)}</div>`;
+  const memo = MEMO_HTML(n,"memo");
+  const statusTag = isW
+    ? `<span class="tg" style="background:${WATCHED_COLOR};color:${WATCHED_INK}">${T("watched")}</span>` : "";
+  const isPinned = pinnedNode && pinnedNode.id===n.id;
+  info.innerHTML=`${isPinned?`<button class="infoClose" aria-label="Close">✕</button>`:""}<div class="t">${n.t}</div>
+    <div class="tags">${tagChips}${statusTag}</div>
+    ${desc}
+    ${memo}
+    ${feeds.length?`<div class="c f">${T("setsUp")}: ${feeds.join(", ")}</div>`:""}
+    ${parents.length?`<div class="c b">${T("buildsOn")}: ${parents.join(", ")}</div>`:""}
+    ${weaves.length?`<div class="c" style="color:${WEAVE_COLOR}">${T("woven")}: ${weaves.join(", ")}</div>`:""}
+    ${shares.length?`<div class="c" style="color:${SHARE_COLOR}">${T("shared")}: ${shares.join(", ")}</div>`:""}
+    ${theories.length?`<div class="c" style="color:#e0533d">${T("theory")}: ${theories.join(", ")}</div>`:""}
+    ${isPinned?`<button class="infoCheck${isW?" on":""}" data-id="${n.id}" role="checkbox" aria-checked="${isW}"
+       style="--watched-c:${WATCHED_COLOR};--watched-ink:${WATCHED_INK}"><span class="box">✓</span>${isW?T("isWatched"):T("markWatched")}</button>`:""}
+    ${isPinned&&typeof subOpen!=="undefined"&&subOpen?`<button class="infoFocusBtn" data-id="${n.id}">${T("toFocus")}</button>`:""}`;
+  info.classList.toggle("pinned",!!isPinned);
+  info.classList.add("on");
+}
+function moveInfo(e){
+  if(pinnedNode) return;  // positioned via CSS while pinned; don't let a stray mousemove fight it
+  const w=300,h=info.offsetHeight||160,pad=14;
+  let x=e.clientX+18,y=e.clientY+18;
+  if(x+w>innerWidth)x=e.clientX-w-18;
+  if(y+h>innerHeight)y=innerHeight-h-pad;
+  info.style.left=x+"px";info.style.top=y+"px";
+}
+function clear(){
+  if(pinnedNode) return;  // a mobile tap-pinned card stays open until explicitly dismissed
+  svg.classList.remove("dim");
+  svg.querySelectorAll(".node").forEach(g=>g.classList.remove("keep","hot"));
+  svg.querySelectorAll(".link").forEach(l=>l.classList.remove("hot"));
+  info.classList.remove("on");
+  lastFocus=null;   // card dismissed; nothing is focused anymore
+  subMark(null);
+}
+function dismissPinned(){
+  pinnedNode=null;
+  subMark(null);
+  info.classList.remove("pinned");
+  svg.classList.remove("dim");
+  svg.querySelectorAll(".node").forEach(g=>g.classList.remove("keep","hot"));
+  svg.querySelectorAll(".link").forEach(l=>l.classList.remove("hot"));
+  info.classList.remove("on");
+  lastFocus=null;
+}
+function pinNode(n){
+  pinnedNode=n;
+  info.style.left=""; info.style.top="";  // clear any hover-positioned inline styles so the .pinned CSS layout takes over
+  focus(n);
+}
+// close button lives inside #info, rebuilt on every focus() call — delegate the click/tap
+info.addEventListener("click",e=>{
+  if(e.target.closest(".infoClose")){ dismissPinned(); return; }
+  const ck=e.target.closest(".infoCheck");
+  if(ck){ toggleWatched(ck.dataset.id); return; }   // refreshes the card (and its blur) via focus()
+  const fb=e.target.closest(".infoFocusBtn");
+  if(fb && BY[fb.dataset.id]){
+    const n=BY[fb.dataset.id];
+    const bg=document.querySelector(`#subMap .row[data-id="${n.id}"] .rowBg`);
+    const r=bg?bg.getBoundingClientRect():info.getBoundingClientRect();
+    dismissPinned();
+    openFocus(n,{fromRect:r});
+  }
+});
+
+// ---------------- FILTER BY TAG (multi-select, OR logic, dims non-matches) ----------------
+function nodeMatches(n){
+  if(activeFrans.size===0) return true;
+  return n.fr.some(fk=>activeFrans.has(fk));
+}
+function applyFilter(){
+  const none=activeFrans.size===0;
+  svg.querySelectorAll(".node").forEach(g=>{
+    const n=BY[g.dataset.id];
+    g.classList.toggle("filtered",!none && !nodeMatches(n));
+  });
+  svg.querySelectorAll(".link").forEach(l=>{
+    const a=BY[l.dataset.a], b=BY[l.dataset.b];
+    // a link stays lit only if BOTH endpoints match a selected tag
+    const lit = none || (nodeMatches(a)&&nodeMatches(b));
+    l.classList.toggle("filtered",!lit);
+  });
+}
+
+// filter chips
+const fbar=document.getElementById("filters");
+Object.entries(FRAN).forEach(([k,f],i,arr)=>{
+  if(isTheme(k) && !isTheme(arr[i-1][0])){ const dv=document.createElement("span"); dv.className="fDiv"; fbar.appendChild(dv); }
+  const c=document.createElement("div");c.className="chip"+(isTheme(k)?" thChip":"");c.dataset.k=k;
+  c.innerHTML=`<span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${f.c};margin-right:6px;vertical-align:middle"></span>${f.l}`;
+  c.style.borderColor=f.c;
+  c.onclick=()=>{
+    if(activeFrans.has(k)){ activeFrans.delete(k); c.classList.remove("on"); c.style.background="var(--chip-bg)"; }
+    else { activeFrans.add(k); c.classList.add("on"); c.style.background=f.c; }
+    updateTagCount();
+    applyFilter();
+  };
+  fbar.appendChild(c);
+});
+// re-tint the filter chips when a theme changes the franchise colours
+function renderFilters(){
+  fbar.querySelectorAll(".chip").forEach(c=>{
+    const f=FRAN[c.dataset.k]; if(!f) return;
+    c.style.borderColor=f.c; c.querySelector("span").style.background=f.c;
+    if(c.classList.contains("on")) c.style.background=f.c;
+  });
+}
+
+// tag count badge + mobile collapse
+function updateTagCount(){
+  const badge=document.getElementById("tagCount");
+  const n=activeFrans.size;
+  badge.textContent=n; badge.style.display=n?"inline-block":"none";
+}
+// filters start collapsed on small screens
+if(matchMedia("(max-width:760px)").matches) fbar.classList.add("collapsed");
+document.getElementById("filtersToggle").addEventListener("click",()=>{
+  fbar.classList.toggle("collapsed");
+});
+
+// ---------------- ORIENT TOGGLE ----------------
+const orientSwitch=document.getElementById("orientSwitch");
+// icons: show the layout that is CURRENTLY active (rows = vertical, columns = horizontal)
+const ORIENT_ICON={
+  v:`<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 3v18M12 3v6c0 3 5 3 5 6v6"/><circle cx="7" cy="8" r="2" fill="currentColor"/><circle cx="7" cy="16" r="2" fill="currentColor"/><circle cx="17" cy="17" r="2" fill="currentColor"/></svg>`,
+  // graph: small cards in phase columns joined by curved story links
+  h:`<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M9 12C12 12 12 6 15 6M9 12C12 12 12 18 15 18"/><rect x="2" y="9.25" width="7" height="5.5" rx="1.6" fill="currentColor" stroke="none"/><rect x="15" y="3.25" width="7" height="5.5" rx="1.6" fill="currentColor" stroke="none"/><rect x="15" y="15.25" width="7" height="5.5" rx="1.6" fill="currentColor" stroke="none"/></svg>`
+};
+function updateOrientIcon(){ orientSwitch.innerHTML=ORIENT_ICON[ORIENT]; }
+// minimalist line-icon eyes for the spoiler-free toggle (icon-only button, used everywhere)
+const EYE_ICON={
+  closed:`<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" style="display:block" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"/><path d="M10.6 5.1A10.6 10.6 0 0 1 12 5c7 0 11 7 11 7a17.7 17.7 0 0 1-3.4 4.3M7 6.6C3.4 8.6 1 12 1 12s4 7 11 7a10 10 0 0 0 4.2-.9"/><path d="M9.5 10a3 3 0 0 0 4.1 4.2"/></svg>`,
+  open:`<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" style="display:block" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7.5 11-7.5S23 12 23 12s-4 7.5-11 7.5S1 12 1 12Z"/><circle cx="12" cy="12" r="3"/></svg>`
+};
+function spoilerBtnLabel(){ return spoilerFree ? EYE_ICON.closed : EYE_ICON.open; }
+function spoilerBtnTitle(){
+  return spoilerFree ? T("spoilerOn") : T("spoilerOff");
+}
+function setOrient(o,save=true){
+  ORIENT=o;
+  document.body.classList.toggle("orient-v", ORIENT==="v");
+  if(typeof closeThemeMenu==="function") closeThemeMenu();
+  updateOrientIcon();
+  if(ORIENT==="v"){ openSubway(save); updateDensityLabel(); }
+  else { if(subOpen) closeSubway(save); document.getElementById("zout").disabled=false; document.getElementById("zin").disabled=false; build(); fit(); }
+}
+orientSwitch.addEventListener("click",()=>{
+  setOrient(ORIENT==="h" ? "v" : "h");
+});
+
+// ---------------- GOD OF STORIES (Loki weaves) TOGGLE ----------------
+const weaveBtn=document.getElementById("weaveBtn");
+weaveBtn.style.borderColor=WEAVE_COLOR;
+weaveBtn.addEventListener("click",()=>{
+  showWeaves=!showWeaves;
+  weaveBtn.classList.toggle("on",showWeaves);
+  weaveBtn.style.background=showWeaves?WEAVE_COLOR:"var(--chip-bg)";
+  saveToggles();
+  build(); // rebuild edges; keep current pan/zoom
+});
+
+// ---------------- SHARED ELEMENTS TOGGLE ----------------
+const sharesBtn=document.getElementById("sharesBtn");
+sharesBtn.style.borderColor=SHARE_COLOR;
+sharesBtn.addEventListener("click",()=>{
+  showShares=!showShares;
+  sharesBtn.classList.toggle("on",showShares);
+  sharesBtn.style.background=showShares?SHARE_COLOR:"var(--chip-bg)";
+  sharesBtn.style.color=showShares?"#1a1305":"";
+  saveToggles();
+  build(); // rebuild edges; keep current pan/zoom
+});
+
+// ================= SUBWAY VIEW (B) + FOCUS VIEW (C) =================
+// B: one coloured line per franchise tag, stations in phase→year order, interchanges where a title is on several lines.
+// C: one title centred, its lines running in above / out below, neighbours to tap through.
+// no line cap on wider screens; phones cap at 8 so titles stay readable. Track spacing adapts to the line count.
+if(!subLines) subLines=SUB_LINE_KEYS.slice();
+const subIsPhone=()=>matchMedia("(max-width:760px)").matches;
+const subMax=()=>Infinity;
+const subEl=document.getElementById("subway");
+const subMapWrap=document.getElementById("subMapWrap");
+const subFocusEl=document.getElementById("subFocus");
+const esc=t=>String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+// In-universe (story) order of the MCU titles — approximate, following Marvel's own timeline ordering.
+// Legacy titles keep their release order in their own section; post–Secret Wars titles go last.
+const STORY_ORDER=["cap1","cm","im1","im2","hulk","thor1","av1","im3","thor2","cap2","gg1","gg2","av2","ant1","cw","bw","bp1","sm1","ds1",
+  "thor3","antw","iw","eg","loki","wv","sc1","fws","sm2","et","hawk","sm3","mk","ds2","msm","thor4","shulk","bp2","si","gghs","echo","gg3",
+  "marvels","ant3","agatha","riri","dw","cbnw","tb","ddba","pun","wman","sbnd","tasm3","vq","ff2","doom","sw","xmen28","gr","bp3"];
+const STORY_ERA=id=>{ const i=STORY_ORDER.indexOf(id);
+  return i<0?2:i<=STORY_ORDER.indexOf("cm")?0:i<=STORY_ORDER.indexOf("iw")?1:i<=STORY_ORDER.indexOf("sw")?2:3; };
+function subSteps(){
+  // step = 1 + the deepest step of anything it builds on (story dependencies), starting points are step 1
+  const memo={}, vis=new Set(visN().map(n=>n.id));
+  const d=(n,seen)=>{ if(memo[n.id]) return memo[n.id]; if(seen.has(n.id)) return 1; seen.add(n.id);
+    const ps=relations(n).parents.filter(b=>vis.has(b.id));
+    return memo[n.id]=ps.length?1+Math.max(...ps.map(b=>d(b,seen))):1; };
+  visN().forEach(n=>d(n,new Set()));
+  return memo;
+}
+let subStepCache=null;
+function subOrder(){
+  const idx={}; N.forEach((n,i)=>idx[n.id]=i);
+  const rel=(a,b)=>a.p-b.p||a.y-b.y||idx[a.id]-idx[b.id];
+  const vis=visN().slice();
+  if(subOrderMode==="story"){
+    const si={}; STORY_ORDER.forEach((id,i)=>si[id]=i);
+    return vis.sort((a,b)=>{ const la=a.p===0, lb=b.p===0; if(la!==lb) return la?-1:1; if(la) return rel(a,b);
+      return (si[a.id]??999)-(si[b.id]??999)||rel(a,b); });
+  }
+  if(subOrderMode==="steps"){ const st=subStepCache||(subStepCache=subSteps()); return vis.sort((a,b)=>st[a.id]-st[b.id]||rel(a,b)); }
+  return vis.sort(rel);
+}
+// section (header) each station falls under, for the current order
+function subSection(n){
+  if(subOrderMode==="steps"){ const st=subStepCache||(subStepCache=subSteps()); const k=st[n.id];
+    return {key:"s"+k, label:T("step")+" "+k, color:"var(--dim)"}; }
+  if(subOrderMode==="story"){
+    if(n.p===0) return {key:"legacy", label:PHASE_LABEL(0), long:PHASE_LABEL(0)+" · "+SAGA(0), color:PHASE_COLOR[0]};
+    const e=STORY_ERA(n.id); return {key:"e"+e, label:T(["eraPast","eraInfinity","eraBlip","eraAfter"][e]), color:PHASE_COLOR[[1,3,5,7][e]]};
+  }
+  return {key:"p"+n.p, label:PHASE_LABEL(n.p), long:PHASE_LABEL(n.p)+" · "+SAGA(n.p), color:PHASE_COLOR[n.p]};
+}
+function relations(n){
+  const vis=visN(), ok=id=>BY[id]&&(!BY[id].theory||showTheory);
+  const feeds=new Set(n.links.filter(ok)); vis.forEach(x=>{ if(x.parent===n.id) feeds.add(x.id); });
+  const parents=new Set(vis.filter(x=>x.links.includes(n.id)).map(x=>x.id)); if(n.parent&&ok(n.parent)) parents.add(n.parent);
+  const extra=[], seen=new Set();
+  const add=(id,kind)=>{ if(ok(id)&&!seen.has(id+kind)){ seen.add(id+kind); extra.push([BY[id],kind]); } };
+  if(showWeaves){ (n.weaves||[]).forEach(t=>add(t,"woven")); vis.forEach(x=>x.weaves&&x.weaves.includes(n.id)&&add(x.id,"woven")); }
+  if(showShares){ (n.shares||[]).forEach(([t])=>add(t,"shared")); vis.forEach(x=>x.shares&&x.shares.some(([t])=>t===n.id)&&add(x.id,"shared")); }
+  if(showTheory){ (n.theoryLinks||[]).forEach(t=>add(t,"theory")); vis.forEach(x=>x.theoryLinks&&x.theoryLinks.includes(n.id)&&add(x.id,"theory")); }
+  return {feeds:[...feeds].map(id=>BY[id]), parents:[...parents].map(id=>BY[id]), extra};
+}
+// metro line membership = franchise tags + extra metro-only lines (e.g. Doomsday joins the Cap and FF lines)
+const LK=n=>n.metro?[...n.fr,...n.metro.filter(k=>!n.fr.includes(k))]:n.fr;
+const lineColor=n=>{ const k=LK(n).find(k=>isSeries(k)&&subLines.includes(k))||LK(n).find(isSeries)||n.fr.find(k=>FRAN[k]); return k?FRAN[k].c:"var(--dim)"; };
+
+function renderSubHead(msg){
+  const head=document.getElementById("subHead");
+  const chips=SUB_LANE_ORDER.filter(isSeries).map(k=>[k,FRAN[k]]).map(([k,f])=>
+    `<button class="subChip${subLines.includes(k)?" on":""}" data-k="${k}" style="--c:${f.c}">${esc(f.l)}</button>`).join("");
+  head.innerHTML=`<div class="subTop">
+      <div class="subTitle"><small>Marvel Cinematic Universe</small>Lines</div>
+      <span class="subProg" id="subProg">✓ ${watched.size}/${visN().length}</span>
+      <button class="subBtn" id="subSpoil" title="${esc(spoilerBtnTitle())}" aria-label="${esc(spoilerBtnTitle())}">${spoilerBtnLabel()}</button>
+    </div>
+    <div class="subChips">${chips}</div>
+    <div class="subHint${msg?" warn":""}" id="subHint">${msg||T("subPickAll")+` · ${subLines.length}/${SUB_LINE_KEYS.length}`}</div>`;
+}
+
+function renderSubway(){
+  subStepCache=null;
+  renderSubHead();
+  const map=document.getElementById("subMap");
+  // lane order: FRAN order, except Netflix sits right next to Street so the Netflix Daredevil interchange
+  // doesn't stretch across (and look connected to) the X-Men line in the Legacy section
+  const lanes=SUB_LANE_ORDER.filter(k=>isSeries(k)&&subLines.includes(k));
+  const laneOf={}; lanes.forEach((k,i)=>laneOf[k]=i);
+  // titles with no line tag at all (only colour codes) still appear, as off-track stations in their own column
+  const isSolo=n=>!LK(n).some(isSeries);   // standalones (no series yet) sit off-track
+  const st=subOrder().filter(n=>LK(n).some(k=>k in laneOf)||isSolo(n));
+  const soloLane=lanes.length;
+  const W=Math.max(300,Math.min(map.clientWidth||subMapWrap.clientWidth||380,640));
+  const MS=(THEMES[currentTheme]&&THEMES[currentTheme].metro)||{};
+  const DEN=[{row:15,ph:28},{row:26,ph:34},{row:46,ph:40}][subDensity];
+  const ROW=DEN.row, PH=DEN.ph, CUR=Math.max(ROW,30);
+  // adaptive track spacing: lanes may use up to ~40% of the width (min 9px apart, max 17px)
+  const phone=subIsPhone();
+  const cols=lanes.length+1;
+  const LG=cols<2?17:Math.max(phone?7:9,Math.min(17,(W*(phone?0.48:0.4)-24)/(cols-1)));
+  const L0=Math.max(14,Math.min(22,LG+5));
+  const SW=Math.max(2.4,Math.min(4.5,LG*0.27)), RR=Math.min(ROW*0.32,Math.max(3.4,Math.min(6.5,LG*0.38))), RI=Math.max(2.4,RR-1.5);
+  const lx=i=>L0+i*LG, labelX=lx(soloLane)+22;
+  // compact rows also carry the year (+ a ✓) on the same line, so leave ~7 characters for it
+  const cw0=(subDensity===2?7.4:subDensity===1?6.9:6)*(MS.upper?1.18:1);
+  const TK=Object.keys(FRAN).filter(isTheme), MM=false, mmW=0;
+  const maxChars=Math.max(10,Math.floor((W-labelX-14-mmW)/cw0)-(subDensity===1?7:0)-(MS.logged&&subDensity===1?6:0));
+  const cut=t=>t.length>maxChars?t.slice(0,maxChars-1)+"…":t;
+  // theme highlight: matching rows get a band, their stations light up in the theme colour and a soft
+  // marker stroke joins them; everything else fades
+  const HL=null, TCOL=null, lit=()=>false;   // single-theme highlight retired
+  map.classList.remove("hasTheme");
+  subStepCache=null;
+  let y=10, lastP=null; const pos={}, divs=[];
+  st.forEach(n=>{ const sc=subSection(n); if(sc.key!==lastP){ divs.push({...sc,y}); y+=PH; lastP=sc.key; } pos[n.id]=y+ROW/2; y+=ROW; });
+  const H=y+28;
+  let o=`<svg viewBox="0 0 ${W} ${H}" height="${H}" xmlns="http://www.w3.org/2000/svg">`;
+  // phase dividers
+  divs.forEach(d=>{
+    o+=`<line x1="0" y1="${d.y+PH-8}" x2="${W}" y2="${d.y+PH-8}" stroke="var(--edge)" stroke-dasharray="3 4"/>`;
+    o+=`<text x="${labelX}" y="${d.y+PH-15}" fill="${d.color}" style="font:600 11px 'Barlow Condensed';letter-spacing:.14em">${esc((((W-labelX)<240||!d.long)?d.label:d.long).toUpperCase())}</text>`;
+  });
+  // row backgrounds (hit areas) first, so tracks draw on top
+  if(HL) st.forEach(n=>{ if(lit(n)) o+=`<rect class="thBand" x="2" y="${pos[n.id]-ROW/2+1.5}" width="${W-4}" height="${ROW-3}" rx="6" fill="${TCOL}" opacity=".14" pointer-events="none"/>`; });
+  st.forEach(n=>{ o+=`<g class="row" data-id="${n.id}"><rect class="rowBg" x="0" y="${pos[n.id]-ROW/2}" width="${W}" height="${ROW}" rx="8" pointer-events="none"/><rect class="rowHit" x="${labelX-10}" y="${pos[n.id]-ROW/2}" width="${W-labelX+10}" height="${ROW}" fill="transparent"/></g>`; });
+  // tracks (with a branch curve where a line spins off another active line)
+  let hits="";
+  // a line is split into segments where it runs empty for a while AND the next station doesn't build on
+  // the previous one (e.g. the Sony Spider-Man films → Homecoming); each segment may branch off another line.
+  const linked=(a,b)=>relations(b).parents.includes(a)||relations(a).parents.includes(b);
+  o+=`<g class="dimTrk">`;
+  lanes.forEach(k=>{
+    const S=st.filter(n=>LK(n).includes(k)); if(!S.length) return;
+    const x=lx(laneOf[k]), segs=[[S[0]]];
+    for(let i=1;i<S.length;i++){
+      const pv=S[i-1], cu=S[i];
+      // a station added to this line on purpose (metro-only membership) never breaks the line around it
+      const joined=(pv.metro&&pv.metro.includes(k))||(cu.metro&&cu.metro.includes(k));
+      if(pos[cu.id]-pos[pv.id]>ROW*3.5 && !linked(pv,cu) && !joined) segs.push([cu]); else segs[segs.length-1].push(cu);
+    }
+    // gaps between segments: if anything after the gap builds on a station before it (same line),
+    // the gap is drawn dashed — the story resumes later on this line (e.g. Doctor Strange → Multiverse of Madness)
+    for(let i=1;i<segs.length;i++){
+      const before=new Set(segs.slice(0,i).flat().map(n=>n.id));
+      const resumes=segs.slice(i).flat().some(n=>relations(n).parents.some(b=>before.has(b.id)));
+      if(resumes){
+        const y1=pos[segs[i-1][segs[i-1].length-1].id], y2=pos[segs[i][0].id];
+        const dd=`M${x} ${y1} L${x} ${y2}`;
+        o+=`<path class="track gap" data-k="${k}" d="${dd}" fill="none" stroke="${FRAN[k].c}" stroke-width="${Math.max(1.6,SW*0.55)}" stroke-dasharray="2 6" stroke-linecap="round" opacity=".75"/>`;
+        hits+=`<path class="trackHit" data-k="${k}" d="${dd}" fill="none" stroke="transparent" stroke-width="${Math.max(6,LG)}" pointer-events="stroke"/>`;
+      }
+    }
+    segs.forEach(seg=>{
+      const first=seg[0], last=seg[seg.length-1];
+      let d=`M${x} ${pos[first.id]} L${x} ${pos[last.id]}`;
+      // a line that begins at an interchange simply starts there: the station already joins it to the other
+      // lines, so no branch curve is pulled in from some earlier, unrelated station (e.g. Guardians → Age of Ultron)
+      const startsAtInterchange=LK(first).some(q=>q!==k && q in laneOf);
+      const from=startsAtInterchange?null:relations(first).parents
+        .filter(b=>pos[b.id]!=null && pos[b.id]<pos[first.id] && LK(b).some(q=>q!==k && q in laneOf) && !LK(b).includes(k))
+        .sort((a,b)=>pos[b.id]-pos[a.id])[0];
+      if(from){
+        const bx=lx(laneOf[LK(from).find(q=>q in laneOf)]), by=pos[from.id];
+        // the transition's height grows with the horizontal distance, so wide branches bend smoothly
+        // instead of flattening into a near-horizontal S (capped at the segment's first station)
+        const want=Math.max(CUR*1.6,Math.abs(x-bx)*2.4), ey=Math.min(by+want,pos[first.id]), h=ey-by;
+        // when the next station is too close to give the curve its full height, push the control points
+        // further out so both ends still visibly bend (vertical in, vertical out) instead of a straight diagonal
+        const cv=h*0.78;   // long vertical tangents → a smooth S: not a straight diagonal, not a flat step
+        d=`M${bx} ${by} C${bx} ${by+cv} ${x} ${ey-cv} ${x} ${ey} L${x} ${pos[last.id]}`;
+      }
+      if(MS.track==="wire"){
+        o+=`<path d="${d}" fill="none" stroke="${FRAN[k].c}" stroke-width="${SW*1.9}" opacity=".14" stroke-linecap="round" pointer-events="none"/>`;
+        o+=`<path class="track" data-k="${k}" d="${d}" fill="none" stroke="${FRAN[k].c}" stroke-width="${Math.max(1.2,SW*0.38)}" stroke-linecap="round"/>`;
+      }else if(MS.track==="ink"){
+        o+=`<path d="${d}" fill="none" stroke="#141010" stroke-width="${SW+2.8}" stroke-linecap="round" pointer-events="none"/>`;
+        o+=`<path class="track" data-k="${k}" d="${d}" fill="none" stroke="${FRAN[k].c}" stroke-width="${SW}" stroke-linecap="round"/>`;
+      }else o+=`<path class="track" data-k="${k}" d="${d}" fill="none" stroke="${FRAN[k].c}" stroke-width="${SW}" stroke-linecap="round"/>`;
+      hits+=`<path class="trackHit" data-k="${k}" d="${d}" fill="none" stroke="transparent" stroke-width="${Math.max(6,LG)}" pointer-events="stroke"/>`;
+    });
+  });
+  o+=`</g>`;
+  if(HL){
+    // the marker stroke: a wide, soft line hopping from one matching station to the next
+    const pts=st.filter(lit).map(n=>{ const ks=LK(n).filter(k=>k in laneOf).sort((a,b)=>laneOf[a]-laneOf[b]);
+      return [ks.length?lx(laneOf[ks[ks.length-1]]):lx(soloLane), pos[n.id]]; });
+    if(pts.length>1){
+      let d=`M${pts[0][0]} ${pts[0][1]}`;
+      for(let i=1;i<pts.length;i++){ const [a,b]=pts[i-1],[c,e]=pts[i],m=(e-b)*0.5; d+=` C${a} ${b+m} ${c} ${e-m} ${c} ${e}`; }
+      o+=`<path class="swash" d="${d}" fill="none" stroke="${TCOL}" stroke-width="${Math.max(8,LG*1.15)}" stroke-linecap="round" stroke-linejoin="round" opacity=".3" pointer-events="none"/>`;
+    }
+  }
+  o+=hits;   // track hit areas sit above the tracks but below the stations
+  // stations + labels (dots, interchange pills and titles are interactive; the connector line is not)
+  st.forEach(n=>{
+    const ks=LK(n).filter(k=>k in laneOf).sort((a,b)=>laneOf[a]-laneOf[b]); const yy=pos[n.id];
+    const isW=watched.has(n.id);
+    const L=lit(n);
+    let g=`<g class="row st${HL&&!L?" off":""}${n.fr.some(isTheme)?" thm":""}" data-id="${n.id}">`;
+    // leader line: from the station's right-most dot across the other tracks to its title
+    const code=n.fr.filter(isTheme);
+    const leadC = L ? TCOL : ks.length ? FRAN[ks[ks.length-1]].c : (code[0]?FRAN[code[0]].c:"var(--dim)");
+    { const x1=(ks.length?lx(laneOf[ks[ks.length-1]]):lx(soloLane))+RR+1.5;
+      if(labelX-8>x1 && (subDensity>0||ks.length>1)) g+=`<line class="lead" pointer-events="none" x1="${x1}" y1="${yy}" x2="${labelX-8}" y2="${yy}" stroke="${leadC}" style="color:${leadC}" stroke-width="${L?1.5:0.9}" stroke-linecap="round" opacity="${L?.95:.7}"/>`; }
+    if(!ks.length){
+      // off-track station: no line, coloured by its first colour code; a square marks "not on a line"
+      const x=lx(soloLane), r=RR;
+      g+=`<rect class="solo" x="${x-r}" y="${yy-r}" width="${2*r}" height="${2*r}" rx="2" fill="${(isW||L)?leadC:"var(--panel)"}" stroke="${leadC}" stroke-width="${Math.min(2.6,SW*0.6)}"${n.series?' stroke-dasharray="3 2.2"':""}/>`;
+    }
+    if(ks.length>1 && MS.station==="diamond"){
+      // HUD interchange: a pair of square brackets around the dots
+      const a=lx(laneOf[ks[0]])-RR-3, b=lx(laneOf[ks[ks.length-1]])+RR+3, h=RR+2.5;
+      g+=`<path class="ix" d="M${a+2} ${yy-h} H${a} V${yy+h} H${a+2} M${b-2} ${yy-h} H${b} V${yy+h} H${b-2}" fill="none" stroke="var(--ink)" stroke-width="1.2"/>`;
+    }else if(ks.length>1){
+      const a=lx(laneOf[ks[0]]), b=lx(laneOf[ks[ks.length-1]]);
+      g+=`<rect x="${a-RR-2.5}" y="${yy-RR-2.5}" width="${b-a+2*RR+5}" height="${2*RR+5}" rx="${RR+2.5}" fill="${MS.station==="comic"?"#fff":"var(--void)"}" stroke="var(--ink)" stroke-width="${MS.station==="comic"?2.2:2}"/>`;
+    }
+    ks.forEach(k=>{
+      if(MS.station==="diamond"){
+        const cx=lx(laneOf[k]), r=(ks.length>1?RI:RR)*1.15;
+        g+=`<polygon points="${cx},${yy-r} ${cx+r},${yy} ${cx},${yy+r} ${cx-r},${yy}" fill="${L?TCOL:isW?FRAN[k].c:"var(--void)"}" stroke="${L?TCOL:FRAN[k].c}" stroke-width="1.2"${n.series?' stroke-dasharray="2 1.6"':""}/>`;
+        return;
+      }
+      if(MS.station==="comic"){
+        g+=`<circle cx="${lx(laneOf[k])}" cy="${yy}" r="${(ks.length>1?RI:RR)+0.6}" fill="${L?TCOL:isW?FRAN[k].c:"#fff"}" stroke="#141010" stroke-width="1.8"${n.series?' stroke-dasharray="3 2"':""}/>`;
+        return;
+      }
+      g+=`<circle cx="${lx(laneOf[k])}" cy="${yy}" r="${(ks.length>1?RI:RR)+(L?0.8:0)}" fill="${L?TCOL:isW?FRAN[k].c:"var(--panel)"}" stroke="${L?TCOL:FRAN[k].c}" stroke-width="${Math.min(2.6,SW*0.6)}"${n.series?' stroke-dasharray="3 2.2"':""}/>`;
+    });
+    const sub=`${n.y}${n.series?" · "+T("series"):""}${n.theory?" · "+T("theoryTag"):""}`;
+    const tick=isW?(MS.logged?` <tspan fill="${WATCHED_COLOR}">// LOGGED</tspan>`:` <tspan fill="${MS.station==="comic"?"#0a8a4a":"#2ecc71"}">✓</tspan>`):"";
+    const tt=t=>MS.upper?t.toUpperCase():t;
+    if(subDensity===2){
+      g+=`<text x="${labelX}" y="${yy-1}" fill="var(--ink)" style="font:600 13.5px 'Barlow',system-ui,sans-serif">${esc(cut(tt(n.t)))}</text>`;
+      g+=`<text x="${labelX}" y="${yy+14}" fill="var(--dim)" style="font:500 11px 'Barlow',system-ui,sans-serif">${esc(sub)}${tick}</text>`;
+    }else if(subDensity===1){
+      g+=`<text x="${labelX}" y="${yy+4.5}" fill="var(--ink)" style="font:600 12.5px 'Barlow',system-ui,sans-serif">${esc(cut(tt(n.t)))}<tspan fill="var(--dim)" style="font-weight:500;font-size:10.5px"> ${n.y}</tspan>${tick}</text>`;
+    }else if(ks.length>1){
+      // overview: only interchanges keep a label; every other title shows on hover / tap
+      g+=`<text x="${labelX}" y="${yy+3.5}" fill="var(--dim)" style="font:600 10.5px 'Barlow',system-ui,sans-serif">${esc(cut(tt(n.t)))}</text>`;
+    }
+    o+=g+"</g>";
+  });
+  map.innerHTML=o+`<g id="subNums" pointer-events="none"></g></svg>`;
+  subGeo={pos,lx,laneOf,st,RR,ROW};
+  // comic theme: each station's highlight panel leans its own random way
+  map.querySelectorAll("g.row").forEach(g=>g.style.setProperty("--tilt",((Math.random()<.5?-1:1)*(0.7+Math.random()*1.1)).toFixed(2)+"deg"));
+  if(subLineSel&&!(subLineSel in laneOf)) subLineSel=null;
+  setTimeout(()=>{ if(!subMarked) restLine(); });
+  if(subMarked) subMark(subMarked);   // keep the highlight across re-renders (e.g. after marking watched)
+}
+// turn a theme highlight on (or off when it's already active / k is null)
+function setSubTheme(k){
+  subTheme=(k&&k!==subTheme&&isTheme(k))?k:null;
+  if(pinnedNode) dismissPinned(); else clear();
+  if(subFocus){ subFocus=null; subFocusEl.classList.remove("on"); subMapWrap.classList.remove("away"); }
+  renderSubway();
+  if(subTheme){   // bring the first matching title into view
+    const first=subOrder().find(n=>n.fr.includes(subTheme));
+    const r=first&&document.querySelector(`#subMap g.row[data-id="${first.id}"] .rowBg`);
+    if(r){ const b=r.getBoundingClientRect(), wr=subMapWrap.getBoundingClientRect(); subMapWrap.scrollTop+=b.top-wr.top-140; }
+  }
+}
+function setDensity(dn){
+  dn=Math.max(0,Math.min(2,dn)); if(dn===subDensity) return;
+  // remember which station is in the middle of the screen, re-render, scroll it back to the middle
+  const wr=subMapWrap.getBoundingClientRect(), mid=wr.top+wr.height/2;
+  let best=null, bd=1e9;
+  document.querySelectorAll("#subMap g.row .rowBg").forEach(r=>{ const b=r.getBoundingClientRect(), dd=Math.abs(b.top+b.height/2-mid); if(dd<bd){bd=dd;best=r.parentNode.dataset.id;} });
+  subDensity=dn; renderSubway(); updateDensityLabel(); saveToggles();
+  const r=best&&document.querySelector(`#subMap g.row[data-id="${best}"] .rowBg`);
+  if(r){ const b=r.getBoundingClientRect(); subMapWrap.scrollTop+= (b.top+b.height/2)-mid; }
+}
+function updateDensityLabel(){
+  if(ORIENT!=="v") return;
+  const z=document.getElementById("zlbl"); if(z) z.textContent=T(["denOverview","denCompact","denNormal"][subDensity]);
+  document.getElementById("zout").disabled=subDensity===0;
+  document.getElementById("zin").disabled=subDensity===2;
+}
+// pinch on the map steps through the density levels (one step per pinch gesture)
+(()=>{
+  let d0=null, stepped=false;
+  const dist=t=>Math.hypot(t[0].clientX-t[1].clientX,t[0].clientY-t[1].clientY);
+  subMapWrap.addEventListener("touchstart",e=>{ if(e.touches.length===2){ d0=dist(e.touches); stepped=false; } },{passive:true});
+  subMapWrap.addEventListener("touchmove",e=>{
+    if(e.touches.length!==2||d0==null) return;
+    e.preventDefault();
+    if(stepped) return;
+    const r=dist(e.touches)/d0;
+    if(r<0.72){ setDensity(subDensity-1); stepped=true; }
+    else if(r>1.38){ setDensity(subDensity+1); stepped=true; }
+  },{passive:false});
+  subMapWrap.addEventListener("touchend",e=>{ if(e.touches.length<2) d0=null; },{passive:true});
+})();
+
+// highlight one station's connector line (desktop hover / mobile tap)
+let subMarked=null;
+function subMark(id){
+  subMarked=id;
+  document.querySelectorAll("#subMap g.act").forEach(g=>g.classList.remove("act"));
+  if(id) document.querySelectorAll(`#subMap g.row[data-id="${id}"]`).forEach(g=>g.classList.add("act"));
+  // number the stops of every line this title is on (or clear when nothing is marked)
+  if(id&&BY[id]) showSeq(LK(BY[id]).filter(k=>subGeo&&k in subGeo.laneOf), id); else if(!document.getElementById("subTip").classList.contains("on")) restLine();
+}
+// sequence numbers on the dots of the given lines, in the current order (Release / Story / Steps)
+let subGeo=null;
+function showSeq(keys, focusId){
+  const g=document.getElementById("subNums"); if(!g||!subGeo) return;
+  const {pos,lx,laneOf,st,RR,ROW}=subGeo;
+  // numbered dots are bigger in Steps order (where the sequence is the point), and the dot you're on is bigger still
+  const steps=subOrderMode==="steps";
+  const base=Math.max(6.2,Math.min(8,RR+2.6))*(steps?1.35:1);
+  // collect the badges first, so stations numbered on two neighbouring lanes can be staggered instead of overlapping
+  const gap=lx(1)-lx(0), badges=[];
+  keys.forEach(k=>{
+    const S=st.filter(n=>LK(n).includes(k)); const x=lx(laneOf[k]);
+    S.forEach((n,i)=>{ const me=n.id===focusId; badges.push({id:n.id,x,y:pos[n.id],k,num:i+1,me,r:me?base*1.4:base}); });
+  });
+  const byRow={}; badges.forEach(b=>(byRow[b.id]=byRow[b.id]||[]).push(b));
+  Object.values(byRow).forEach(list=>{
+    if(list.length<2) return;
+    list.sort((a,b)=>a.x-b.x);
+    const crowded=list.some((b,j)=>j&&b.x-list[j-1].x<b.r+list[j-1].r+1);
+    if(!crowded) return;
+    // interchange with too many numbers for its lanes: lay the badges out side by side in lane order,
+    // centred on the interchange, so none overlaps (each keeps its line colour)
+    const sp=2, total=list.reduce((t,b)=>t+2*b.r,0)+sp*(list.length-1), cx=(list[0].x+list[list.length-1].x)/2;
+    let x=cx-total/2;
+    list.forEach(b=>{ b.x=x+b.r; x+=2*b.r+sp; });
+  });
+  let o="", top="";   // the dot you're on is drawn last so it sits above neighbouring lanes
+  badges.forEach(bd=>{
+    const y=bd.y+(bd.dy||0), fs=bd.r*1.18;
+    const one=`<circle cx="${bd.x}" cy="${y}" r="${bd.r}" fill="${FRAN[bd.k].c}" stroke="${bd.me?"var(--ink)":"var(--void)"}" stroke-width="${bd.me?2.2:1.5}"/>`
+      +`<text x="${bd.x}" y="${y+fs*0.36}" text-anchor="middle" fill="#fff" style="font:700 ${fs}px 'Barlow Condensed',system-ui,sans-serif">${bd.num}</text>`;
+    if(bd.me) top+=one; else o+=one;
+  });
+  o+=top;
+  g.innerHTML=o;
+}
+
+function fChip(x,kind){
+  if(!x) return "";
+  return `<button class="sfChip${kind?" x":""}${watched.has(x.id)?" w":""}" data-id="${x.id}"><i style="background:${lineColor(x)}"></i>${esc(x.t)} <small>${x.y}${kind?" · "+T(kind==="woven"?"woven":kind==="shared"?"shared":"theory").replace(/^[^\w]+\s*/,""):""}</small></button>`;
+}
+function renderFocus(n,opt={}){
+  const sc=subFocusEl.scrollTop;
+  const r=relations(n), order=subOrder(), isW=watched.has(n.id), locked=spoilerFree&&!isW&&!n.theory;
+  const lines=LK(n).filter(isSeries);
+  const allTags=n.fr.filter(k=>FRAN[k]);
+  const rails=lines.length?lines.map(k=>`<span style="background:${FRAN[k].c}"></span>`).join(""):`<span style="background:var(--edge)"></span>`;
+  const tags=allTags.map(k=>isTheme(k)
+      ?`<span class="thTag" style="--c:${FRAN[k].c}">${esc(FRAN[k].l)}</span>`
+      :`<span style="background:${FRAN[k].c}">${esc(FRAN[k].l)}</span>`).join("")
+    +`<span style="background:${PHASE_COLOR[n.p]}">${esc(PHASE_LABEL(n.p))}</span>`
+    +(n.series?`<span style="background:${CK_STROKE}">${T("series")}</span>`:"")
+    +(n.theory?`<span style="background:#e0533d">${T("theoryTag")}</span>`:"");
+  const nav=lines.map(k=>{
+    const seq=order.filter(x=>LK(x).includes(k)), i=seq.indexOf(n), pv=seq[i-1], nx=seq[i+1];
+    return `<div class="sfLine" style="--c:${FRAN[k].c}">
+      ${pv?`<button class="sfChip prev" data-id="${pv.id}" data-dir="-1">‹ ${esc(pv.t)}</button>`:`<span class="end">${T("lineStart")}</span>`}
+      <span class="nm">${esc(FRAN[k].l)}</span>
+      ${nx?`<button class="sfChip" data-id="${nx.id}" data-dir="1">${esc(nx.t)} ›</button>`:`<span class="end">${T("lineEnd")}</span>`}
+    </div>`;}).join("");
+  subFocusEl.innerHTML=`<div class="sfWrap">
+    <div class="sfTop"><button class="subBtn" id="sfBack">← ${T("subMap")}</button>
+      <div class="ln">${lines.map(k=>`<span style="--c:${FRAN[k].c}">${esc(FRAN[k].l)}</span>`).join("")}</div></div>
+    ${r.parents.length?`<div class="sfLab">${T("buildsOn")}</div><div class="sfChips">${r.parents.map(x=>fChip(x)).join("")}</div>`:""}
+    <div class="sfRails">${rails}</div>
+    <div class="sfCard" id="sfCard">
+      <div class="t">${esc(n.t)}</div>
+      <div class="sfMeta">${n.y}</div>
+      <div class="sfTags">${tags}</div>
+      <div class="sfDesc${locked?" locked":""}">${esc(DESC(n))}</div>
+      ${MEMO_HTML(n,"memo")}
+      ${locked?`<div class="sfLock">${T("locked")}</div>`:""}
+      <button class="infoCheck${isW?" on":""}" data-id="${n.id}" role="checkbox" aria-checked="${isW}"
+        style="--watched-c:${WATCHED_COLOR};--watched-ink:${WATCHED_INK}"><span class="box">✓</span>${isW?T("isWatched"):T("markWatched")}</button>
+    </div>
+    <div class="sfRails">${rails}</div>
+    ${r.feeds.length?`<div class="sfLab">${T("setsUp")}</div><div class="sfChips">${r.feeds.map(x=>fChip(x)).join("")}</div>`:""}
+    ${nav?`<div class="sfSec"><div class="sfLab">${T("onLines")}</div>${nav}</div>`:""}
+    ${r.extra.length?`<div class="sfSec"><div class="sfLab">${T("related")}</div><div class="sfChips">${r.extra.map(([x,k])=>fChip(x,k)).join("")}</div></div>`:""}
+  </div>`;
+  if(opt.keepScroll) subFocusEl.scrollTop=sc; else subFocusEl.scrollTop=0;
+  const card=document.getElementById("sfCard"), rl=subFocusEl.querySelectorAll(".sfRails span");
+  const ease="cubic-bezier(.2,.8,.2,1)";
+  if(opt.fromRect && card.animate){
+    // B→C: the card grows out of the tapped station row
+    const c=card.getBoundingClientRect(), f=opt.fromRect;
+    const dy=(f.top+f.height/2)-(c.top+c.height/2);
+    card.animate([{transform:`translateY(${dy}px) scale(.55)`,opacity:.15},{transform:"none",opacity:1}],{duration:380,easing:ease});
+    rl.forEach(sp=>sp.animate([{transform:"scaleY(0)"},{transform:"scaleY(1)"}],{duration:420,delay:120,easing:ease,fill:"backwards"}));
+  }else if(opt.dir && card.animate){
+    // C→C: ride one stop up/down the line
+    card.animate([{transform:`translateY(${opt.dir*46}px)`,opacity:0},{transform:"none",opacity:1}],{duration:300,easing:ease});
+    rl.forEach(sp=>sp.animate([{opacity:.2},{opacity:1}],{duration:300}));
+  }
+}
+function openFocus(n,opt={}){
+  if(pinnedNode) dismissPinned(); else clear();
+  subHoverId=null;
+  subFocus=n;
+  renderFocus(n,opt);
+  subMapWrap.classList.add("away");
+  subFocusEl.classList.add("on");
+}
+function closeFocus(){
+  const n=subFocus; subFocus=null;
+  subFocusEl.classList.remove("on");
+  subMapWrap.classList.remove("away");
+  if(!n) return;
+  const bg=document.querySelector(`#subMap .row[data-id="${n.id}"] .rowBg`);
+  if(bg){
+    const r=bg.getBoundingClientRect(), wr=subMapWrap.getBoundingClientRect();
+    subMapWrap.scrollTop+= (r.top+r.height/2)-(wr.top+wr.height/2);
+    bg.classList.remove("flash"); void bg.getBoundingClientRect(); bg.classList.add("flash");
+  }
+}
+function openSubway(save=true){
+  subOpen=true; subEl.classList.add("on");
+  if(typeof dismissPinned==="function" && pinnedNode) dismissPinned();
+  info.classList.remove("on");
+  renderSubway();
+  if(save) saveToggles();
+}
+function closeSubway(save=true){
+  if(pinnedNode) dismissPinned(); else clear();
+  subOpen=false; subFocus=null; subEl.classList.remove("on");
+  subFocusEl.classList.remove("on"); subMapWrap.classList.remove("away");
+  if(save) saveToggles();
+}
+// hover popup on the map (mouse only) — the same #info card the graph uses
+let subPtr="mouse", subHoverId=null;
+subEl.addEventListener("pointerdown",e=>{ subPtr=e.pointerType||"mouse"; },true);
+const subTip=document.getElementById("subTip");
+let subTipTimer=null;
+function showLineTip(k,x,y,autoHide){
+  if(!FRAN[k]){ hideLineTip(); return; }
+  subTip.textContent=FRAN[k].l; subTip.style.setProperty("--c",FRAN[k].c);
+  const w=subTip.offsetWidth||80;
+  subTip.style.left=Math.min(innerWidth-w-8,Math.max(8,x+14))+"px"; subTip.style.top=Math.max(8,y-34)+"px";
+  subTip.classList.add("on");
+  document.querySelectorAll("#subMap .track").forEach(p=>p.classList.toggle("hl",p.dataset.k===k));
+  showSeq([k]);
+  clearTimeout(subTipTimer); if(autoHide) subTipTimer=setTimeout(hideLineTip,2600);
+}
+// a clicked/tapped line stays highlighted (track + its stations' numbers) until a click elsewhere
+let subLineSel=null;
+function restLine(){
+  document.querySelectorAll("#subMap .track").forEach(p=>p.classList.toggle("hl",!!subLineSel&&p.dataset.k===subLineSel));
+  document.querySelectorAll("#subMap .row").forEach(g=>g.classList.toggle("lineSel",!!subLineSel&&!!BY[g.dataset.id]&&LK(BY[g.dataset.id]).includes(subLineSel)));
+  showSeq(subLineSel?[subLineSel]:[]);
+}
+function setLineSel(k){ subLineSel=k; restLine(); }
+function hideLineTip(){ subTip.classList.remove("on"); clearTimeout(subTipTimer);
+  if(subMarked) { restLine(); subMark(subMarked); } else restLine(); }
+subMapWrap.addEventListener("pointermove",e=>{
+  if(e.pointerType!=="mouse"||pinnedNode||subFocus) return;
+  const th=e.target.closest(".trackHit");
+  if(th){ if(subHoverId){ subHoverId=null; clear(); } showLineTip(th.dataset.k,e.clientX,e.clientY,false); return; }
+  hideLineTip();
+  const row=e.target.closest("#subMap .row");
+  const id=row&&row.dataset.id;
+  if(id!==subHoverId){
+    subHoverId=id;
+    if(id&&BY[id]){ info.style.left=""; info.style.top=""; focus(BY[id]); subMark(id); } else clear();
+  }
+  if(id) moveInfo(e);
+});
+subMapWrap.addEventListener("pointerleave",e=>{ hideLineTip(); if(e.pointerType==="mouse"&&!pinnedNode){ subHoverId=null; clear(); } });
+subMapWrap.addEventListener("scroll",()=>{ hideLineTip(); if(!pinnedNode&&subHoverId){ subHoverId=null; clear(); } },{passive:true});
+subEl.addEventListener("click",e=>{
+  const chip=e.target.closest(".subChip");
+  if(chip){
+    const k=chip.dataset.k;
+    if(subLines.includes(k)) subLines=subLines.filter(x=>x!==k);
+    else if(subLines.length>=subMax()){ renderSubHead(T("subMax")); return; }
+    else subLines=[...subLines,k];
+    renderSubway(); saveToggles(); return;
+  }
+  if(e.target.closest("#subSpoil")){ spoilerBtn.click(); renderSubway(); if(subFocus) renderFocus(subFocus,{keepScroll:true}); return; }
+  if(e.target.closest("#sfBack")){ closeFocus(); return; }
+  const ck=e.target.closest(".infoCheck");
+  if(ck){ toggleWatched(ck.dataset.id); return; }
+  const th=e.target.closest("#subMap .trackHit");
+  if(th){ const k=th.dataset.k;
+    if(subPtr!=="mouse"&&pinnedNode) dismissPinned();
+    if(subLineSel===k){ setLineSel(null); hideLineTip(); return; }
+    setLineSel(k); showLineTip(k,e.clientX,e.clientY,subPtr!=="mouse"); return; }
+  const row=e.target.closest("#subMap .row");
+  if(!row && subLineSel) setLineSel(null);
+  if(row && BY[row.dataset.id]){
+    const n=BY[row.dataset.id];
+    if(subPtr!=="mouse"){ pinNode(n); subMark(n.id); return; }          // touch/pen: same popup as the graph, pinned
+    const bg=document.querySelector(`#subMap .row[data-id="${n.id}"] .rowBg`)||row;
+    clear(); openFocus(n,{fromRect:bg.getBoundingClientRect()}); return;
+  }
+  if(pinnedNode && !e.target.closest(".subChip,#subHead button")){ dismissPinned(); }
+  const fc=e.target.closest(".sfChip");
+  if(fc && BY[fc.dataset.id]){
+    const tgt=BY[fc.dataset.id];
+    let dir=+fc.dataset.dir||0;
+    if(!dir){ const o=subOrder(); dir=o.indexOf(tgt)<o.indexOf(subFocus)?-1:1; }
+    openFocus(tgt,{dir});
+  }
+});
+document.addEventListener("keydown",e=>{
+  if(!subOpen||e.key!=="Escape") return;
+  if(subFocus) closeFocus(); else if(subLineSel) setLineSel(null);
+});
+addEventListener("resize",()=>{ if(subOpen) renderSubway(); });
+
+// ---------------- LANGUAGE TOGGLE ----------------
+document.getElementById("langBtn").addEventListener("click",()=>{
+  LANG = LANG==="pt" ? "en" : "pt";
+  saveToggles();
+  applyLangChrome();
+  const keep=pinnedNode;
+  build();                       // redraw phase/saga headers in the new language
+  if(typeof refreshJumpRail==="function") refreshJumpRail();
+  if(subOpen){ pinnedNode=null; info.classList.remove("on","pinned"); }
+  else if(keep) pinNode(keep); else if(typeof clear==="function") clear();
+  if(subOpen){ renderSubway(); if(subFocus) renderFocus(subFocus,{keepScroll:true}); updateDensityLabel(); }
+  if(typeof updateOrderBtn==="function") updateOrderBtn();
+});
+
+// ---------------- 🕸 HIDDEN THEORY TOGGLE (easter egg — the faint dot beside the title) ----------------
+const theoryDot=document.getElementById("theoryDot");
+theoryDot.addEventListener("click",()=>{
+  showTheory=!showTheory;
+  theoryDot.classList.toggle("on",showTheory);
+  theoryDot.title=showTheory?"???":"";
+  saveToggles();
+  // adding/removing a node changes the tree's bounding box, so re-fit the view —
+  // otherwise the pan/zoom stays put and the new node can land outside the visible area.
+  build(); fit();
+  updateProgress();
+  if(showTheory && BY["tasm3"]){
+    const isMobile=matchMedia("(max-width:760px)").matches;
+    if(isMobile){
+      pinNode(BY["tasm3"]);   // mobile bottom-sheet card, same as tapping any node
+    }else{
+      focus(BY["tasm3"]);
+      // desktop: place the card next to the actual node instead of relying on
+      // mouse position (there was no mousemove event here) or the mobile pinned layout.
+      const g=svg.querySelector('.node[data-id="tasm3"]');
+      if(g){
+        const r=g.getBoundingClientRect();
+        const w=300,h=info.offsetHeight||160,pad=14;
+        let x=r.right+18, y=r.top;
+        if(x+w>innerWidth) x=r.left-w-18;
+        if(x<pad) x=pad;
+        if(y+h>innerHeight) y=innerHeight-h-pad;
+        if(y<pad) y=pad;
+        info.style.left=x+"px"; info.style.top=y+"px";
+      }
+    }
+  }else{
+    if(pinnedNode) dismissPinned(); else clear();
+  }
+});
+
+// ---------------- WATCHED PROGRESS + SPOILER TOGGLE ----------------
+function updateProgress(){
+  const el=document.getElementById("progress");
+  if(el) el.textContent=`✓ ${watched.size}/${visN().length}`;
+  const sp=document.getElementById("subProg"); if(sp) sp.textContent=`✓ ${watched.size}/${visN().length}`;
+}
+const spoilerBtn=document.getElementById("spoilerBtn");
+spoilerBtn.addEventListener("click",()=>{
+  spoilerFree=!spoilerFree;
+  spoilerBtn.classList.toggle("on",spoilerFree);
+  spoilerBtn.innerHTML=spoilerBtnLabel();
+  spoilerBtn.title=spoilerBtnTitle();
+  spoilerBtn.style.background=spoilerFree?"var(--chip-bg)":"var(--btn-bg-on)";
+  saveToggles();
+  if(lastFocus && info.classList.contains("on")) focus(lastFocus); // refresh only if a card is open
+});
+
+// ---------------- PAN / ZOOM ----------------
+const stage=document.getElementById("stage");
+let scale=1,tx=0,ty=0,curW=0,curH=0,defaultScale=1;
+function apply(){tree.style.transform=`translate(${tx}px,${ty}px) scale(${scale})`;
+  if(ORIENT!=="v") document.getElementById("zlbl").textContent=Math.round(scale*100)+"%";}
+function fit(){
+  curW=svg.width.baseVal.value; curH=svg.height.baseVal.value;
+  const bar=document.querySelector(".bar");
+  const topPad=(bar?bar.offsetHeight:56)+12;   // clear the (possibly wrapped) toolbar
+  const botPad=76;                              // clear the zoom controls
+  // clear the phase jump rail too, when it's actually on screen (vertical mode) — measure its real
+  // rendered edge so this adapts whether it's collapsed to a thin tab or fully expanded.
+  let leftPad=0;
+  if(jumpRail && !jumpRail.hidden){
+    const r=jumpRail.getBoundingClientRect();
+    leftPad=Math.max(0, r.right+10);
+  }
+  const vw=innerWidth-leftPad, vh=innerHeight-topPad-botPad;
+  scale=Math.min(vw/curW, vh/curH)*0.92;
+  defaultScale=scale;   // remember the "resting" zoom level so jumpToPhase can tell if the user has since zoomed manually
+  tx=leftPad+(vw-curW*scale)/2; ty=topPad+(vh-curH*scale)/2; apply();
+}
+
+// ---------------- JUMP RAIL (phase navigator, vertical/chapters mode only) ----------------
+const jumpRail=document.getElementById("jumpRail");
+function refreshJumpRail(){
+  if(!isChapters() || !lastBandInfo){ jumpRail.hidden=true; return; }
+  jumpRail.hidden=false;
+  jumpRail.classList.toggle("collapsed", !showJumpRail);
+  jumpRail.innerHTML="";
+  const toggle=document.createElement("button");
+  toggle.className="jrToggle";
+  toggle.title=showJumpRail?"Hide phase jump menu":"Show phase jump menu";
+  toggle.textContent=showJumpRail?"‹":"›";
+  toggle.onclick=()=>{
+    showJumpRail=!showJumpRail;
+    saveToggles();
+    refreshJumpRail();
+  };
+  jumpRail.appendChild(toggle);
+  const wrap=document.createElement("div");
+  wrap.className="jrPhases";
+  for(let p=0;p<=MAX_PHASE;p++){
+    if(!lastBandInfo[p]) continue;
+    const b=document.createElement("button");
+    b.className="jrPhaseBtn";
+    b.style.setProperty("--jr-c", PHASE_COLOR[p]);
+    b.textContent=p===0?"X":p;
+    b.title=T("jump")+" "+PHASE_LABEL(p);
+    b.onclick=()=>jumpToPhase(p);
+    wrap.appendChild(b);
+  }
+  jumpRail.appendChild(wrap);
+}
+function jumpToPhase(p){
+  if(!lastBandInfo || !lastBandInfo[p]) return;
+  const bi=lastBandInfo[p];
+  const bar=document.querySelector(".bar");
+  const topPad=(bar?bar.offsetHeight:56)+12, botPad=76;
+  let leftPad=0;
+  if(jumpRail && !jumpRail.hidden){
+    const r=jumpRail.getBoundingClientRect();
+    leftPad=Math.max(0, r.right+10);
+  }
+  const viewW=innerWidth-leftPad, viewH=innerHeight-topPad-botPad;
+
+  // only zoom in if we're still at the original "fit all" scale — if the user already zoomed
+  // manually since then, just pan to the phase and leave their zoom level alone.
+  const atDefaultZoom=Math.abs(scale-defaultScale)<0.01;
+  if(atDefaultZoom){
+    const bandW=Math.max(1,bi.right-bi.left), bandH=Math.max(1,bi.bottom-bi.top);
+    const fitScale=Math.min(viewW/bandW, viewH/bandH)*0.9;
+    scale=Math.max(defaultScale, Math.min(2.6, fitScale));  // never zoom OUT past the default
+  }
+
+  const targetY=lastOy+(bi.top+bi.bottom)/2;      // absolute internal-SVG y of this phase's band center
+  const targetX=lastOx+(bi.left+bi.right)/2;
+  const viewCenterY=topPad+viewH/2;
+  ty=viewCenterY-targetY*scale;
+  if(atDefaultZoom){
+    // also center horizontally when we zoomed in, so the band sits clear of other phases
+    tx=leftPad+viewW/2-targetX*scale;
+  }
+  tree.style.transition="transform .45s cubic-bezier(.4,0,.2,1)";
+  apply();
+  setTimeout(()=>{ tree.style.transition="none"; }, 470);
+}
+
+let drag=false,sx,sy;
+stage.addEventListener("mousedown",e=>{drag=true;sx=e.clientX-tx;sy=e.clientY-ty;stage.classList.add("drag")});
+addEventListener("mouseup",()=>{drag=false;stage.classList.remove("drag")});
+addEventListener("mousemove",e=>{if(drag){tx=e.clientX-sx;ty=e.clientY-sy;apply()}});
+// zoom by factor f, keeping the point (cx,cy) fixed on screen — shared by wheel, double-click, and pinch
+function zoomAt(cx,cy,f){
+  const newScale=Math.max(.2,Math.min(2.6,scale*f));
+  f=newScale/scale;
+  tx=cx-(cx-tx)*f; ty=cy-(cy-ty)*f;
+  scale=newScale; apply();
+}
+stage.addEventListener("wheel",e=>{e.preventDefault();
+  zoomAt(e.clientX,e.clientY, e.deltaY<0?1.12:0.89);},{passive:false});
+document.getElementById("zin").onclick=()=>{ if(ORIENT==="v"){ setDensity(subDensity+1); return; } scale=Math.min(2.6,scale*1.15);apply()};
+document.getElementById("zout").onclick=()=>{ if(ORIENT==="v"){ setDensity(subDensity-1); return; } scale=Math.max(.2,scale*.87);apply()};
+document.getElementById("reset").onclick=fit;
+// double-click / double-tap: zoom in one step, anchored on the click point (not the browser's native page zoom)
+stage.addEventListener("dblclick",e=>{
+  e.preventDefault();
+  zoomAt(e.clientX, e.clientY, 1.6);
+});
+// double-clicking UI chrome (buttons, tag chips, theme picker, etc.) should just suppress the
+// browser's native zoom-in-on-double-click — it must NOT also zoom the canvas underneath.
+document.addEventListener("dblclick",e=>{
+  if(!stage.contains(e.target)) e.preventDefault();
+},{capture:true});
+// touch
+let lt=null, ld=null, lmid=null, uiTouch=false;
+let tapStart=null;  // {x,y,time,target} — used to distinguish a tap (open/close info card) from a pan/pinch
+function midpoint(t){
+  return { x:(t[0].clientX+t[1].clientX)/2, y:(t[0].clientY+t[1].clientY)/2 };
+}
+// true if the touch originated on the toolbar (tag menu, buttons, theme picker, zoom controls)
+// rather than the canvas itself — those regions handle their own scrolling/taps.
+function isChromeTouch(e){
+  const t=e.target;
+  return !!(t.closest && t.closest(".bar, .ctl, .themePicker, #info"));
+}
+stage.addEventListener("touchstart",e=>{
+  uiTouch = isChromeTouch(e);
+  if(uiTouch) return;   // let the toolbar/tag menu handle its own touch (e.g. horizontal tag scroll)
+  if(e.touches.length===1){
+    lt={x:e.touches[0].clientX-tx,y:e.touches[0].clientY-ty};
+    tapStart={x:e.touches[0].clientX,y:e.touches[0].clientY,time:Date.now(),target:e.target};
+  }
+  if(e.touches.length===2){
+    ld=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+    lmid=midpoint(e.touches);
+    lt=null; // stop single-finger pan while pinching
+    tapStart=null; // a second finger means this is a pinch, not a tap
+  }
+},{passive:false});
+stage.addEventListener("touchmove",e=>{
+  if(uiTouch) return;    // don't hijack scrolling inside the toolbar/tag menu
+  e.preventDefault();
+  if(e.touches.length===1&&lt){
+    tx=e.touches[0].clientX-lt.x; ty=e.touches[0].clientY-lt.y; apply();
+  }
+  if(e.touches.length===2&&ld){
+    const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+    const mid=midpoint(e.touches);
+    let f=d/ld;
+    // clamp so we don't overshoot the scale limits, then keep the pinch midpoint anchored
+    const newScale=Math.max(.2,Math.min(2.6,scale*f));
+    f=newScale/scale;
+    // anchor zoom on the current midpoint (same math as wheel-zoom)
+    tx=mid.x-(mid.x-tx)*f;
+    ty=mid.y-(mid.y-ty)*f;
+    // also pan by how much the two fingers' center moved (lets you drag while pinching)
+    tx+=mid.x-lmid.x;
+    ty+=mid.y-lmid.y;
+    scale=newScale; ld=d; lmid=mid; apply();
+  }
+},{passive:false});
+stage.addEventListener("touchend",e=>{
+  if(e.touches.length<2){ ld=null; lmid=null; }
+  // if one finger remains after a pinch, resume panning from its position
+  if(e.touches.length===1 && !uiTouch){ lt={x:e.touches[0].clientX-tx,y:e.touches[0].clientY-ty}; }
+  // resolve tap vs. drag: a short, mostly-stationary touch is a tap (open/close the info card)
+  if(!uiTouch && tapStart && e.touches.length===0){
+    const ct=e.changedTouches[0];
+    const dist=ct?Math.hypot(ct.clientX-tapStart.x, ct.clientY-tapStart.y):999;
+    const elapsed=Date.now()-tapStart.time;
+    if(dist<10 && elapsed<450){
+      const nodeEl = tapStart.target.closest && tapStart.target.closest(".node");
+      const onCheck = tapStart.target.closest && tapStart.target.closest(".check");
+      if(nodeEl && !onCheck){
+        const n=BY[nodeEl.dataset.id];
+        if(n) pinNode(n);
+      } else if(!nodeEl){
+        if(pinnedNode) dismissPinned();  // tapped empty canvas — close the pinned card
+      }
+    }
+  }
+  tapStart=null;
+  if(e.touches.length===0) uiTouch=false;
+},{passive:false});
+
+// ---------------- THEME PICKER WIRING ----------------
+const themeSel=document.getElementById("themeSel");
+themeSel.addEventListener("change",e=>applyTheme(e.target.value));
+
+// compact icon version (vertical mode): tap opens a small popover listing all themes
+const themeIconBtn=document.getElementById("themeIconBtn");
+const themeMenuWrap=document.getElementById("themeIconBtn").parentElement;
+const themeMenu=document.getElementById("themeMenu");
+function updateThemeIconTitle(){
+  themeIconBtn.title="Theme: "+(THEMES[currentTheme]?.label||currentTheme)+" — tap to switch";
+}
+function buildThemeMenu(){
+  themeMenu.innerHTML="";
+  Object.entries(THEMES).forEach(([key,t])=>{
+    const b=document.createElement("button");
+    b.className=key===currentTheme?"active":"";
+    b.innerHTML=`<span class="themeSwatch" style="background:${t.css["--void"]}"></span>${t.label}`;
+    b.addEventListener("click",e=>{
+      e.stopPropagation();
+      applyTheme(key);
+      themeSel.value=key;
+      updateThemeIconTitle();
+      closeThemeMenu();
+    });
+    themeMenu.appendChild(b);
+  });
+}
+function onDocClickCloseThemeMenu(e){ if(!themeMenuWrap.contains(e.target)) closeThemeMenu(); }
+function openThemeMenu(){
+  if(typeof closeOrderMenu==="function") closeOrderMenu();
+  buildThemeMenu();
+  themeMenu.style.setProperty("--menu-shift","0px");
+  themeMenu.classList.add("open");
+  document.addEventListener("click",onDocClickCloseThemeMenu,{capture:true});
+  // keep it fully on-screen: nudge horizontally if the centered position would clip an edge
+  requestAnimationFrame(()=>{
+    const r=themeMenu.getBoundingClientRect(), pad=8;
+    let shift=0;
+    if(r.right>innerWidth-pad) shift=(innerWidth-pad)-r.right;
+    else if(r.left<pad) shift=pad-r.left;
+    if(shift) themeMenu.style.setProperty("--menu-shift",shift+"px");
+  });
+}
+function closeThemeMenu(){
+  themeMenu.classList.remove("open");
+  document.removeEventListener("click",onDocClickCloseThemeMenu,{capture:true});
+}
+// ---------------- METRO ORDER MENU (bottom bar, metro view only) ----------------
+const orderBtn=document.getElementById("orderBtn"), orderMenu=document.getElementById("orderMenu");
+function buildOrderMenu(){
+  orderMenu.innerHTML=`<div class="omHead">${T("orderBy")}</div>`;
+  ["release","story","steps"].forEach(m=>{
+    const b=document.createElement("button");
+    b.className=m===subOrderMode?"active":""; b.setAttribute("role","menuitemradio"); b.setAttribute("aria-checked",m===subOrderMode);
+    b.textContent=(m===subOrderMode?"✓ ":"")+T("ord_"+m);
+    b.addEventListener("click",e=>{ e.stopPropagation();
+      if(m!==subOrderMode){ subOrderMode=m; renderSubway(); if(subFocus) renderFocus(subFocus,{keepScroll:true}); subMapWrap.scrollTop=0; saveToggles(); }
+      updateOrderBtn(); closeOrderMenu(); });
+    orderMenu.appendChild(b);
+  });
+}
+function updateOrderBtn(){ orderBtn.title=T("orderBy")+": "+T("ord_"+subOrderMode); orderBtn.setAttribute("aria-label",orderBtn.title); }
+function onDocClickCloseOrderMenu(e){ if(!e.target.closest("#orderWrap")) closeOrderMenu(); }
+function openOrderMenu(){
+  if(typeof closeThemeMenu==="function") closeThemeMenu();
+  buildOrderMenu(); orderMenu.style.setProperty("--menu-shift","0px"); orderMenu.classList.add("open");
+  document.addEventListener("click",onDocClickCloseOrderMenu,{capture:true});
+  requestAnimationFrame(()=>{ const r=orderMenu.getBoundingClientRect(), pad=8; let sh=0;
+    if(r.right>innerWidth-pad) sh=(innerWidth-pad)-r.right; else if(r.left<pad) sh=pad-r.left;
+    if(sh) orderMenu.style.setProperty("--menu-shift",sh+"px"); });
+}
+function closeOrderMenu(){ orderMenu.classList.remove("open"); document.removeEventListener("click",onDocClickCloseOrderMenu,{capture:true}); }
+orderBtn.addEventListener("click",e=>{ e.stopPropagation(); orderMenu.classList.contains("open")?closeOrderMenu():openOrderMenu(); });
+updateOrderBtn();
+
+themeIconBtn.addEventListener("click",e=>{
+  e.stopPropagation();
+  themeMenu.classList.contains("open") ? closeThemeMenu() : openThemeMenu();
+});
+
+// ---------------- INIT ----------------
+(async ()=>{
+  await loadWatched();       // restore watched state from storage
+  await loadTheme();         // restore theme choice
+  await loadToggles();       // restore God of Stories / Shared Elements / Spoiler-free choices
+  // apply theme colors to JS globals + CSS BEFORE first build (no flash / correct first paint)
+  const t=THEMES[currentTheme];
+  document.documentElement && Object.entries(t.css).forEach(([k,v])=>document.documentElement.style.setProperty(k,v));
+  PHASE_COLOR={...t.phase};
+  WEAVE_COLOR=t.weave; SHARE_COLOR=t.share; WATCHED_COLOR=t.watched; WATCHED_INK=t.watchedInk;
+  NODE_FILL=t.nodeFill; NODE_FILL_SERIES=t.nodeFillSeries; EDGE_STROKE=t.edgeStroke; CK_STROKE=t.ckStroke;
+  applyThemeExtras(t);
+  themeSel.value=currentTheme;
+  updateThemeIconTitle();
+  // sync the three toggle buttons' visuals to the restored state
+  weaveBtn.classList.toggle("on",showWeaves);
+  weaveBtn.style.background=showWeaves?WEAVE_COLOR:"var(--chip-bg)";
+  sharesBtn.classList.toggle("on",showShares);
+  sharesBtn.style.background=showShares?SHARE_COLOR:"var(--chip-bg)";
+  sharesBtn.style.color=showShares?"#1a1305":"";
+  spoilerBtn.classList.toggle("on",spoilerFree);
+  spoilerBtn.innerHTML=spoilerBtnLabel();
+  spoilerBtn.title=spoilerBtnTitle();
+  spoilerBtn.style.background=spoilerFree?"var(--chip-bg)":"var(--btn-bg-on)";
+  theoryDot.classList.toggle("on",showTheory);
+  theoryDot.title=showTheory?"???":"";
+  applyLangChrome();
+  // show the icon matching the auto-selected default layout
+  document.body.classList.toggle("orient-v", ORIENT==="v");
+  updateOrientIcon();
+  build(); fit();
+  updateProgress();
+  refreshThemedButtons();
+  if(ORIENT==="v"){ openSubway(false); updateDensityLabel(); }
+  addEventListener("resize",fit);
+})();
+</script>
+</body>
+</html>
+
+</body></html>
